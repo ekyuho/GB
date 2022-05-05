@@ -19,7 +19,12 @@ flag_connected = 0
 TOPIC="/oneM2M/req/cse-gnrb-mon/#"
 
 def gotit(topic, msg):
-    print(topic, msg)
+    aename =topic[5]
+    if aename in ae:
+        print('got command for me =====>')
+        print(msg)
+    else:
+        print('not for me, skip', topic)
 
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):

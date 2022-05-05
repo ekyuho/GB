@@ -3,7 +3,7 @@ host="218.232.234.232"  #건교부 테스트 사이트
 port=1883
 
 cse={'name':'cse-gnrb-mon'}
-bridge='025742'  #교량코드
+bridge='025745'  #교량코드
 ae={}
 cnt_proto={'config':{'ctrigger':{},'time':{},'cmeasure':{},'connect':{}},
            'info':{'manufacture':{}, 'install':{},'imeasure':{}},

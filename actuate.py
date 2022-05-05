@@ -22,4 +22,4 @@ def actuate(aename, cmd):
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(url, json.dumps(r.json()))
 
-actuate('ae.025745-AC_A1_01_X','{"cmd":"do it","mood":"positive"}')
+actuate('ae.025745-AC_A1_01_X','{"cmd":"config","method":"{bla bla..}"}')
