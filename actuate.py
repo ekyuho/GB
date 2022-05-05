@@ -31,5 +31,5 @@ if len(sys.argv) <2:
 else:
     print(sys.argv)
 
-actuate(f'{sys.argv[1]}','{"cmd":"config","method":"{bla bla..}"}')
+actuate(f'{sys.argv[1]}','{"cmd":"CONFIG","method":"{bla bla..}"}')
 print('actuate', f'{sys.argv[1]}')

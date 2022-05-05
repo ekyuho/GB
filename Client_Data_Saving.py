@@ -81,11 +81,18 @@ def jsonSave(path, jsonFile):
         json.dump(jsonFile, f, indent=4)
 
 def got_callback(topic, msg):
-    aename=topic[4]
+    # 무슨이유잊니 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
+    aename=topic[5] 
     if aename in ae:
         print('  Callback: got command for me =====>')
         print(topic, aename,  msg)
-        command = msg
+        try:
+            j=json.loads(msg)
+        except:
+            print(f"json error {msg}")
+            return
+        command=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]["cmd"]
+        print(f"got {command} \n{j}")
     else:
         print('  Callback: ', topic, msg)
 
