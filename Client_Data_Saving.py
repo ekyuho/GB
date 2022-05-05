@@ -40,6 +40,7 @@ mqtt_list = conf.mqtt_list
 samplerate_list = conf.samplerate_list
 TOPIC_list = conf.TOPIC_list
 mqttc=""
+command=""
 
 # 다중 데이터의 경우, 어떤 data를 저장할지 결정해야한다
 acc_axis = "x" # x, y, z중 택1
@@ -80,12 +81,13 @@ def jsonSave(path, jsonFile):
         json.dump(jsonFile, f, indent=4)
 
 def got_callback(topic, msg):
-    aename =topic[5]
+    aename=topic[4]
     if aename in ae:
-        print('got command for me =====>')
-        print(msg)
+        print('  Callback: got command for me =====>')
+        print(topic, aename,  msg)
+        command = msg
     else:
-        print('not for me, skip', topic)
+        print('  Callback: ', topic, msg)
 
 
 def connect_mqtt():
@@ -144,11 +146,26 @@ def mqtt_sending(sensorType, data):
 ClientSock = socket(AF_INET, SOCK_STREAM)
 ClientSock.connect(('127.0.0.1', 50000))
 print("연결에 성공했습니다.")
+print("Using:")
+i=1
+for x in list(ae.keys()):
+    print(f"{i}. {x}")
+    i+=1
 
 
 time_old=datetime.now()
 while True:
-    ClientSock.sendall("CAPTURE".encode()) # 0.9초에 1번 socket server로 'CAPTURE' 명령어를 송신합니다.
+    if command.startswith("STATUS"):
+        print('status')
+        ClientSock.sendall("STATUS".encode())
+        command=""
+    elif command.startswith("CONFIG"):
+        print('config')
+        ClientSock.sendall("CONFIG".encode())
+        command=""
+    else:
+        ClientSock.sendall("CAPTURE".encode()) # 0.9초에 1번 socket server로 'CAPTURE' 명령어를 송신합니다.
+
     jsonData = ClientSock.recv(10000)
     jsonData = jsonData.decode('utf_8')
     jsonData = json.loads(jsonData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것

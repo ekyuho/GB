@@ -1,11 +1,13 @@
 import requests
 import json
+import sys
+
 
 host="218.232.234.232"  #건교부 테스트 사이트
 cse={'name':'cse-gnrb-mon'}
 
 def actuate(aename, cmd):
-    print('5.Actuator')
+    print('Actuator')
     h={
         "Accept": "application/json",
         "X-M2M-RI": "12345",
@@ -22,4 +24,12 @@ def actuate(aename, cmd):
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(url, json.dumps(r.json()))
 
-actuate('ae.025745-AC_A1_01_X','{"cmd":"config","method":"{bla bla..}"}')
+if len(sys.argv) <2:
+    print('Usage: python3 actuate.py ae.023356-AC_A1_01_X')
+    print(sys.argv)
+    sys.exit()
+else:
+    print(sys.argv)
+
+actuate(f'{sys.argv[1]}','{"cmd":"config","method":"{bla bla..}"}')
+print('actuate', f'{sys.argv[1]}')

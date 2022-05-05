@@ -309,12 +309,12 @@ while(1) :
                 data[header] = float(tmp)
             else:
                 data[header] = tmp
-        sending_data = json.dumps(data)
         '''
+        fail_data = {"Status":"False","Reason":"Not Implemented"}
+        sending_data = json.dumps(fail_data)
 
 
     elif command == "CONFIG":
-        print('CONFIG')
         '''
         tmp1 = {}
         tmp2 = {}
@@ -339,7 +339,8 @@ while(1) :
             _print += Format %(key, config_data["cmeasure"][key], type(config_data["cmeasure"][key]))    
         #print(_print)
         '''
-        flag = False
+        fail_data = {"Status":"False","Reason":"Not Implemented"}
+        sending_data = json.dumps(fail_data)
         
     else:
         print('WRONG COMMAND: ', command)

@@ -24,7 +24,7 @@ def gotit(topic, msg):
         print('got command for me =====>')
         print(msg)
     else:
-        print('not for me, skip', topic)
+        print('not for me, skip', topic, msg)
 
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
