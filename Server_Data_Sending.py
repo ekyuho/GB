@@ -3,6 +3,7 @@
 # 작성자 : ino-on, 주수아
 # 소켓 클라이언트와 통신을 하며, 클라이언트가 명령어를 보낼 때마다 명령어에 따른 동작을 수행합니다.
 # 현재 'CAPTURE' 명령어만이 활성화되어있습니다. 
+#   5/5 making robust를 위한 작업들, 김규호
 
 import spidev
 import time
@@ -10,6 +11,7 @@ import numpy as np
 import socket
 import json
 import math
+import datetime
 
 spi_bus = 0
 spi_device = 0
@@ -143,10 +145,10 @@ PORT = 50000  # Use PORT 50000
 
 # Server socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print("Socked Created")
-
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server_socket.bind((HOST, PORT))
 server_socket.listen(1)
+print("Socket ready to listen")
 
 client_socket, addr = server_socket.accept()
 print('Connected by', addr)
@@ -163,43 +165,41 @@ num_of_DATA = 2
 # 센서로부터 data bit를 받아, 그것을 적절한 int값으로 변환합니다.
 # return value는 모든 센서 데이터를 포함하고 있는 dictionary 데이터입니다.
 def data_receiving():
-    print("s:"+ "0x24")		# request header
+    #print("s:0x24")		# request header
     rcv1 = spi.xfer2([0x24])
-    #print(rcv1)
-    print("header data signal")
+    #print("header data signal")
     time.sleep(ds)
 
-    print("s:"+ "0x40")
+    #print("s:0x40")
     rcv2 = spi.xfer2([0x40]*8) # follow up action
     time.sleep(ds)
-    print(rcv2)
     #print(rcv2)
+    #print(F"got {len(rcv2)}B {rcv2[0:20]}...")
     
     if rcv2[0] == 216 and rcv2[1] == 216:
         isReady = True
         json_data = {}
-        print("data is ready")
+        #print("data is ready")
         status = basic_conversion(rcv2[2:4]) #status info save
         timestamp = basic_conversion(rcv2[4:8]) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
         json_data["Timestamp"] = timestamp
         json_data["Status"] = status
     else:
         isReady = False
-        print("data is'nt ready yet")
-        print("retry...")
+        print("  ** data not ready")
         fail_data = {"Status":"False"}
         return fail_data
         
     if isReady: #only send data if data is ready
-        print("s:"+ "0x26")		# request static
+        #print("s:"+ "0x26")		# request static
         rcv3 = spi.xfer2([0x26])
         #print(rcv3)
-        print("static sensor data signal")
+        #print("static sensor data signal")
         time.sleep(ds)
 
-        print("s:"+ "0x40")
+        #print("s:"+ "0x40")
         rcv4 = spi.xfer2([0x40]*16) # follow up action
-        print(rcv4)
+        #print(rcv4)
         degreeX = deg_conversion(rcv4[0:2])
         degreeY = deg_conversion(rcv4[2:4])
         degreeZ = deg_conversion(rcv4[4:6])
@@ -212,15 +212,15 @@ def data_receiving():
         json_data["Displacement"] = {"ch4":Displacement_ch4, "ch5":Displacement_ch5}
         time.sleep(ds)
  
-        print("s:"+ "0x25")        # request data	
+        #print("s:"+ "0x25")        # request data	
         rcv5 = spi.xfer2([0x25])
         #print(rcv5)
-        print("Dynamic sensor data signal")
+        #print("Dynamic sensor data signal")
         time.sleep(ds)
 
-        print("s:"+ "0x40")
+        #print("s:"+ "0x40")
         rcv6 = spi.xfer2([0x40]*n)
-        print(rcv6)
+        #print(rcv6)
         acc_list = list()
         strain_list = list()
         for i in range(100):
@@ -239,41 +239,41 @@ def data_receiving():
         json_data["Acceleration"] = acc_list
         json_data["Strain"] = strain_list
         time.sleep(d2)
+        j=json.dumps(json_data)
+        print(F"  data sent {len(j)}B {j[0:80]} ...")
         return json_data
     
-
+time_old=datetime.datetime.now()
 while(1) :
     
     # read Command
     command = client_socket.recv(1024)
     command = command.decode()
     command = command.rstrip() # delete '\n'
-    print("Clinet -> Server :  ", command)
+    now=datetime.datetime.now()
+    print('\n', command, now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
+    time_old=now
 
     # init
     flag = True
     data = {}
     
     # main
-    if command == "QUIT":
-        break 
-    elif command == "START":
+    if command == "START":
         flag = False
     elif command == "STOP":
         flag = False
     elif command == "RESET":
         flag = False
     
-    
-    elif command == "UPLOAD":
+    # 'upload' doesn't reach here
+    #elif command == "UPLOAD":
         '''
-        print("UPLOAD command received")
         sending_data = json.dumps(data)
         '''
 
     elif command == "CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
-        print("CAPTURE command received")
         data = data_receiving()
         sending_data = json.dumps(data) 
         '''
@@ -313,6 +313,7 @@ while(1) :
 
 
     elif command == "CONFIG":
+        print('CONFIG')
         '''
         tmp1 = {}
         tmp2 = {}
@@ -335,17 +336,18 @@ while(1) :
         print("cmeasure")
         for key in cmeasure_CONFIG:
             _print += Format %(key, config_data["cmeasure"][key], type(config_data["cmeasure"][key]))    
-        print(_print)
+        #print(_print)
         '''
         flag = False
         
     else:
+        print('WRONG COMMAND: ', command)
         sending_data = "502 Command Not implemented"
     
     if flag:
         #sending_data += '\n\n'
-        client_socket.sendall(sending_data.encode()) # encode UTF-8
-        print("Server -> Client :  ", sending_data)
+	    client_socket.sendall(sending_data.encode()) # encode UTF-8
+        #print("Server -> Client :  ", sending_data)
     
     else:
         continue
