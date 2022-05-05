@@ -1,11 +1,8 @@
 import requests
 import json
 
-import conf
-host=conf.host
-bridge = conf.bridge
-cse = conf.cse
-ae = conf.ae
+host="218.232.234.232"  #건교부 테스트 사이트
+cse={'name':'cse-gnrb-mon'}
 
 def actuate(aename, cmd):
     print('5.Actuator')
