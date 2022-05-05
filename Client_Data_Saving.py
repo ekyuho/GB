@@ -34,9 +34,12 @@ TOPIC_dis = conf.TOPIC_dis
 TOPIC_tem = conf.TOPIC_tem
 TOPIC_deg = conf.TOPIC_deg
 
+TOPIC_callback="/oneM2M/req/cse-gnrb-mon/#"
+
 mqtt_list = conf.mqtt_list
 samplerate_list = conf.samplerate_list
 TOPIC_list = conf.TOPIC_list
+mqttc=""
 
 # 다중 데이터의 경우, 어떤 data를 저장할지 결정해야한다
 acc_axis = "x" # x, y, z중 택1
@@ -70,15 +73,58 @@ def jsonCreate(dataType, timeData, realData):
 # void jsonSave(path, jsonFile)
 # 받은 dict를 json으로 변환한 후, 지정된 path에 저장합니다.
 # 파일명은 기본적으로 날짜
+
 def jsonSave(path, jsonFile):
     now = datetime.now()
     with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
         json.dump(jsonFile, f, indent=4)
+
+def got_callback(topic, msg):
+    aename =topic[5]
+    if aename in ae:
+        print('got command for me =====>')
+        print(msg)
+    else:
+        print('not for me, skip', topic)
+
+
+def connect_mqtt():
+    def on_connect(client, userdata, flags, rc):
+        if rc == 0:
+            print(f"Connected to {broker} via MQTT")
+            client.subscribe(TOPIC_callback)
+            print(f"subscribed to {TOPIC_callback}")
+        else:
+            print("Failed to connect, return code %d\n", rc)
+
+    def on_disconnect(client, userdata, rc):
+        print("Disconnected from MQTT server!")
+
+    def on_message(client, _topic, _msg):
+        topic=_msg.topic.split('/')
+        msg=_msg.payload.decode('utf8')
+        got_callback(topic, msg)
+
+
+    client_id = f'python-mqtt-{random.randint(0, 1000)}'
+    mqttc = mqtt.Client(client_id)
+    mqttc.on_connect = on_connect
+    mqttc.on_disconnect = on_disconnect
+    mqttc.on_message = on_message
+    mqttc.connect(broker, port)
+    return mqttc
+
+mqttc = connect_mqtt()
+mqttc.loop_start()
+
         
 # void mqtt_sending(sensorType, data)
 # mqtt 전송을 수행합니다. 단, mqtt 전송을 사용하지 않기로 한 센서라면, 수행하지 않습니다.
 # 센서에 따라 다른 TOPIC에 mqtt 메시지를 publish합니다.
 def mqtt_sending(sensorType, data):   
+    if mqttc=="":
+        connect_mqtt()
+
     if mqtt_list[sensorType]=="Y":
         now = datetime.now()
         test_list = list()
@@ -99,10 +145,6 @@ ClientSock = socket(AF_INET, SOCK_STREAM)
 ClientSock.connect(('127.0.0.1', 50000))
 print("연결에 성공했습니다.")
 
-# mqtt 전송을 사용하기로 했다면 mqtt connection을 구축합니다.
-if mqtt_list["use"] == "Y":
-    mqttc = mqtt.Client("Realtime Transmission")
-    mqttc.connect(broker, port)
 
 time_old=datetime.now()
 while True:
