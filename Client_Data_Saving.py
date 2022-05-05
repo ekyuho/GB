@@ -146,7 +146,7 @@ while True:
             mqtt_sending("deg", Degree_json["data"])
             mqtt_sending("tem", Temperature_json["data"])
             mqtt_sending("dis", Displacement_json["data"])
-            print('publish realtime mqtt')
+            #print('publish realtime mqtt')
         
         # 센서별 json file 생성
         jsonSave(deg_path, Degree_json)

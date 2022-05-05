@@ -240,7 +240,7 @@ def data_receiving():
         json_data["Strain"] = strain_list
         time.sleep(d2)
         j=json.dumps(json_data)
-        print(F"  data sent {len(j)}B {j[0:80]} ...")
+        print(F"  data sent {now.strftime('%Y-%m-%d %H:%M:%S')} +{(now-time_old).total_seconds()}sec {len(j)}B {j[0:80]} ...")
         return json_data
     
 time_old=datetime.datetime.now()
@@ -251,7 +251,8 @@ while(1) :
     command = command.decode()
     command = command.rstrip() # delete '\n'
     now=datetime.datetime.now()
-    print('\n', command, now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
+    if not command == "CAPTURE":
+        print('\n', command, now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
     time_old=now
 
     # init
