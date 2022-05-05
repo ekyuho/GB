@@ -1,5 +1,6 @@
 import requests
 import json
+import sys
 
 import conf
 host = conf.host
@@ -22,7 +23,21 @@ url = F"http://{host}:7579/{cse['name']}"
 r = requests.get(url, headers=h)
 print(json.dumps(r.json()))
 
-print('\n2. AE 생성')
+print('\n2. AE 조회')
+found=False
+for k in ae:
+    url = F"http://{host}:7579/{cse['name']}/{k}"
+    r = requests.get(url, headers=h)
+    j=r.json()
+    if "m2m:ae" in j:
+        print(f'found existing {k}')
+        print(json.dumps(r.json()))
+        found = True
+if found:
+    print('\n이미 생성된 AE가 있으므로 종료합니다')
+    sys.exit()
+
+print('\n3. AE 생성')
 h={
     "Accept": "application/json",
     "X-M2M-RI": "12345",
@@ -33,18 +48,18 @@ h={
 body={
     "m2m:ae" : {
         "rn": "",
-        "api": "0.2.481.2.0001.001.000111",
-        "lbl": [],
-        "rr": True,
-        "poa": ["http://203.254.173.104:9727"]
+        "api": "0.0.1",
+        "rr": True
         }
 }
 url = F"http://{host}:7579/{cse['name']}"
 for k in ae:
     body["m2m:ae"]["rn"]=k
     body["m2m:ae"]["lbl"]=[k]
+    print(url, body)
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(json.dumps(r.json()))
+    if "m2m:dbg" in r.json(): sys.exit(0)
 
 def create_sub(aename):
     print('  ** Subscription 생성')
@@ -70,8 +85,9 @@ def create_sub(aename):
     print(url, body)
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(json.dumps(r.json()))
+    if "m2m:dbg" in r.json(): sys.exit(0)
 
-print('\n3. Container 생성')
+print('\n4. Container 생성')
 h={
     "Accept": "application/json",
     "X-M2M-RI": "12345",
@@ -82,8 +98,7 @@ h={
 body={
   "m2m:cnt": {
     "rn": "",
-    "lbl": [],
-    "mbs": 16384
+    "lbl": []
   }
 }
 
@@ -92,9 +107,10 @@ for k in ae:
     for ct in ae[k]["cnt"]:
         body["m2m:cnt"]["rn"]=ct
         body["m2m:cnt"]["lbl"]=[ct]
-        print(url, body)
+        print('ct',url, body)
         r = requests.post(url, data=json.dumps(body), headers=h)
-        print(json.dumps(r.json()))
+        print('ct',json.dumps(r.json()))
+        if "m2m:dbg" in r.json(): sys.exit(0)
         for subct in ae[k]["cnt"][ct]:
             if ct=='ctrl':
                 create_sub(k)
@@ -102,6 +118,7 @@ for k in ae:
                 url2 = F"http://{host}:7579/{cse['name']}/{k}/{ct}"
                 body["m2m:cnt"]["rn"]=subct
                 body["m2m:cnt"]["lbl"]=[subct]
-                print(url2, body)
+                print('subct',url2, body)
                 r = requests.post(url2, data=json.dumps(body), headers=h)
-                print(json.dumps(r.json()))
+                print('subct',json.dumps(r.json()))
+                if "m2m:dbg" in r.json(): sys.exit(0)
