@@ -104,14 +104,19 @@ if mqtt_list["use"] == "Y":
     mqttc = mqtt.Client("Realtime Transmission")
     mqttc.connect(broker, port)
 
+time_old=datetime.now()
 while True:
     ClientSock.sendall("CAPTURE".encode()) # 0.9초에 1번 socket server로 'CAPTURE' 명령어를 송신합니다.
     jsonData = ClientSock.recv(10000)
     jsonData = jsonData.decode('utf_8')
     jsonData = json.loads(jsonData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+    now=datetime.now()
     if jsonData["Status"] == "False":
-        print("** no data", datetime.now().strftime("(%Y-%m-%d %H:%M:%S)"))
+        print("** no data", now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
+        time_old=now
     else:
+        print("data ok", now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
+        time_old=now
         Time_data = jsonData["Timestamp"]
         Temperature_data = jsonData["Temperature"]
         Displacement_data = jsonData["Displacement"]["ch4"]
@@ -149,7 +154,6 @@ while True:
         jsonSave(acc_path, Acceleration_json)
         jsonSave(str_path, Strain_json)
 	
-        print("data ok", datetime.now().strftime("(%Y-%m-%d %H:%M:%S)"))
 
     #명령은 약 0.9초에 1번 보낸다            
     time.sleep(0.9)
