@@ -3,7 +3,7 @@
 # 작성자 : ino-on, 주수아
 # 소켓 클라이언트와 통신을 하며, 클라이언트가 명령어를 보낼 때마다 명령어에 따른 동작을 수행합니다.
 # 현재 'CAPTURE' 명령어만이 활성화되어있습니다. 
-#   5/5 making robust를 위한 작업들, 김규호
+#   5/5 making robust를 위한 작업들, 김규호 
 
 import spidev
 import time
