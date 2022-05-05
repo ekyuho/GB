@@ -94,7 +94,7 @@ def got_callback(topic, msg):
         command=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]["cmd"]
         print(f"got {command} \n{j}")
     else:
-        print('  Callback: ', topic, msg)
+        print('  Callback: not for me', topic, msg[:20],'...')
 
 
 def connect_mqtt():
