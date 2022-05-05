@@ -44,9 +44,11 @@ def ci(aename, cnt, subcnt):
     if "m2m:dbg" in r.json():
         sys.exit()
 
-for aei in ae:
-    for cnti in ae[aei]["cnt"]:
-        for subcnti in ae[aei]["cnt"][cnti]:
-            if cnti in {'ctrigger', 'time', 'cmeasure', 'connect', 'info','install','imeasure'}:
-                print(f'{aei}/{cnti}/{subcnti}')
-                ci(aei, cnti, subcnti)
+def go():
+    print('doing chores for startup')
+    for aei in ae:
+        for cnti in ae[aei]["cnt"]:
+            for subcnti in ae[aei]["cnt"][cnti]:
+                if cnti in {'ctrigger', 'time', 'cmeasure', 'connect', 'info','install','imeasure'}:
+                    print(f'{aei}/{cnti}/{subcnti}')
+                    ci(aei, cnti, subcnti)
