@@ -1,5 +1,5 @@
 #host="m.damoa.io"
-host="218.232.234.232"  #건교부 테스트 사이 
+host="218.232.234.232"  #건교부 테스트 사이트
 port=1883
 
 cse={'name':'cse-gnrb-mon'}
