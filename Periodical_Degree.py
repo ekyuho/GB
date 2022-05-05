@@ -16,24 +16,15 @@ import numpy as np
 measuring = True
 measureperiod = 10 # 단위는 sec
 
+import conf
+host = conf.host
+port = conf.port
+bridge = conf.bridge
+cse = conf.cse
+ae = conf.ae
 
-#host="m.damoa.io"
-host="218.232.234.232"  #건교부 테스트 사이트
-cse={'name':'cse-gnrb-mon'}
-bridge='025742'  #교량코드
-ae={}
-cnt_proto={'config':{'ctrigger':{},'time':{},'cmeasure':{},'connect':{}},
-           'info':{'manufacture':{}, 'install':{},'imeasure':{}},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':{},
-           'ctrl':{"sub":1}}
-ae[F'ae.{bridge}-AC_A1_01_X']={'name':'Accelerator', 'cnt':cnt_proto}
-ae[F'ae.{bridge}-AC_A1_02_X']={'name':'Accelerator', 'cnt':cnt_proto}
-ae[F'ae.{bridge}-AC_A1_03_X']={'name':'Accelerator', 'cnt':cnt_proto}
-ae[F'ae.{bridge}-DI_A1_01_X']={'name':'Displacement Guage', 'cnt':cnt_proto}
-ae[F'ae.{bridge}-TP_A1_01_X']={'name':'Temperature', 'cnt':cnt_proto}
-ae[F'ae.{bridge}-TI_A1_01_X']={'name':'Inclinometer', 'cnt':cnt_proto}
-#기본적인 ae 데이터 입력
+root=conf.root
+
 
 # string find_pathlist()
 # 통계의 대상이 될 파일 path를 return합니다.
