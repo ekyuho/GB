@@ -83,7 +83,7 @@ def jsonSave(path, jsonFile):
         json.dump(jsonFile, f, indent=4)
 
 def got_callback(topic, msg):
-    # 무슨이유잊니 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
+    # 무슨이유인지 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
     aename=topic[5] 
     if aename in ae:
         print('  Callback: got command for me =====>')
