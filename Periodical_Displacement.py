@@ -25,7 +25,9 @@ ae = conf.ae
 
 root=conf.root
 
-
+# string find_pathlist()
+# 통계의 대상이 될 파일 path를 return합니다.
+# 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
 def find_path():
     global measureperiod
     path = "./raw_data/Displacement"
@@ -81,7 +83,7 @@ def read(aename):
         print(url, json.dumps(r.json()))
 
 def tick():
-    read('ae.025742-DI_A1_01_X')
+    read('ae.025742-DI_A1_01_X') # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함
     threading.Timer(measureperiod, tick).start()
     
 time.sleep(measureperiod)

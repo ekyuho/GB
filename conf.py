@@ -153,6 +153,19 @@ TOPIC_list = {
     "deg":TOPIC_deg
     }
 
+FFT_data_acc = {
+    "use":"Y",
+    "st1min":2.1,
+    "st1max":2.6
+    }
+
+FFT_data_str = {
+    "use":"N",
+    "st1min":2.1,
+    "st1max":2.6
+    }
+    
+
 
 if __name__ == "__main__":
     print(ae)

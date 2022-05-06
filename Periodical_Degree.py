@@ -79,7 +79,7 @@ def read(aename):
         print(url, json.dumps(r.json()))
 
 def tick():
-    read('ae.025742-TI_A1_01_X')
+    read('ae.025742-TI_A1_01_X') # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함
     threading.Timer(measureperiod, tick).start()
     
 time.sleep(measureperiod)
