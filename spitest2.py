@@ -52,8 +52,10 @@ def Twos_Complement(data, length):
 # if first bit is '1', it calculates minus value according to Two's Complement
 def basic_conversion(number_list):
     result_str = ''
-    for i in range(len(number_list)):
+    for i in reversed(range(len(number_list))):
         result_hex = hex(number_list[i])[2:]
+        if len(result_hex)<2:
+            result_hex = '0'+result_hex
         result_str += result_hex
     result = int(result_str, 16)
     result = -(result & 0x80000000) | (result & 0x7fffffff)
@@ -229,40 +231,3 @@ while(1) :
            
 
     time.sleep(0.5)
-
-
-    """
-   print("2:");
-   print("s 10 10 10 10 10 10");
-   print( spi.xfer2([0x10]*6) )
-   print(" ");
-   time.sleep(d)
-  
-   print("3:");
-   print("s 111111");
-   print( spi.xfer2([1]*6) )
-   print(" ");
-   time.sleep(d)
-
-   print("4:");
-   print("s 20 20 20 20 20 20");
-   print( spi.xfer2([0x20]*6) )
-   print(" ");
-   time.sleep(d)
-    """
-
-    """
-   print("\nTXD = 0x10")
-   RXD_0 = request_cmd()
-   time.sleep(5)
-   if (RXD_0) :
-      send_data(CMD_A)
-      time.sleep(5)
-
-   print("\nTXD = 0x20")
-   RXD_1 = request_cmd()
-   time.sleep(5)
-   if (RXD_1) :
-      send_data(CMD_B)
-      time.sleep(5)
-    """

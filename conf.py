@@ -134,6 +134,7 @@ mqtt_list = {
     }
 
 # mqtt 데이터에 보낼 samplerate list. 정적 데이터의 경우 1초에 1개를 보내기 때문에 1, 동적 데이터의 경우 1초에 들어오는 데이터 개수만큼의 samplerate를 설정해두었다
+# 참고 : 원래 samplerate는 oneM2M서버의 config->cmeasure에 존재. 서버에 입력되어있는 samplerate는 자료형이 string이기 때문에 int로 변환 필요.
 samplerate_list = {
     "acc1":100,
     "acc2":100,

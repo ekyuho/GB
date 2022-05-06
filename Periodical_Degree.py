@@ -22,6 +22,30 @@ ae = conf.ae
 
 root=conf.root
 
+# string find_pathlist()
+# 통계의 대상이 될 파일 path를 return합니다.
+# 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
+def find_path():
+    global measureperiod
+    path = "./raw_data/Degree"
+    file_list = os.listdir(path)
+    present_time = time.time()
+    min_value = measureperiod*100
+    min_index = 0
+    if len(file_list)==0:
+        print("no data to upload")
+        print("waiting...")
+        return "0"
+    else:
+        
+        for i in range (len(file_list)):
+            file_time = os.path.getmtime(path+'/'+file_list[i])
+            time_gap = present_time-file_time
+            if time_gap < min_value:
+                min_value = time_gap
+                min_index = i
+        return path+'/'+file_list[min_index]
+
 def read(aename):
     #print('6.Read sensor')
     data_path = find_path()

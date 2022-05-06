@@ -1,8 +1,10 @@
 # Server_Data_Sending.py
-# date : 2022-04-28
-# 작성자 : ino-on, 주수아
+# date : 2022-05-06
+# 초기 작성자 : ino-on, 주수아
 # 소켓 클라이언트와 통신을 하며, 클라이언트가 명령어를 보낼 때마다 명령어에 따른 동작을 수행합니다.
 # 현재 'CAPTURE' 명령어만이 활성화되어있습니다. 
+
+#   5/6 변위식 수정. 추후 인하대쪽 코드와 통합할 예정입니다, 주수아
 #   5/5 making robust를 위한 작업들, 김규호 
 
 import spidev
@@ -79,7 +81,7 @@ def dis_conversion(number_list):
             result_hex = '0'+result_hex
         result_str += result_hex
     result = Twos_Complement(result_str, 4)
-    result = (result-5524097)/173
+    result = (result-16339000)/699.6956*(1.01)
     return result
 
 # float acc_conversion(list number_list)
@@ -129,7 +131,7 @@ def tem_conversion(number_list):
     result /= 100
     return result
 
-#현재 변위값은 제대로 올라오지 않음
+# 220506 갱신 : 변위 변환 수식 수정 완료
 
 
 i =0
