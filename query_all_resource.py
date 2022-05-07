@@ -11,8 +11,12 @@ ae = conf.ae
 
 root=conf.root
 
+limit=200
+if len(sys.argv)>1:
+    limit=int(sys.argv[1])
+print(f'display width= {limit}')
 
-print('\n1. CB 조회')
+print('\n1. CB 조회', f'host= {host}')
 h={
     "Accept": "application/json",
     "X-M2M-RI": "12345",
@@ -21,7 +25,7 @@ h={
 }
 url = F"http://{host}:7579/{cse['name']}"
 r = requests.get(url, headers=h)
-print(url, json.dumps(r.json()))
+print(f"{cse['name']}", json.dumps(r.json())[:limit])
 
 print('\n2. AE/Container 조회')
 
@@ -30,17 +34,18 @@ for k in ae:
     r = requests.get(url2, headers=h)
     #if "m2m:dbg" in r.json():
         #sys.exit()
-    print(url2, json.dumps(r.json()))
-    for ct in ae[k]["cnt"]:
+    print(f'{k}', json.dumps(r.json())[:limit])
+    for ct in ae[k]:
         url3 = F"{url2}/{ct}"
         r = requests.get(url3, headers=h)
         #if "m2m:dbg" in r.json():
             #sys.exit()
-        print(url3, json.dumps(r.json()))
+        print(f' {k}/{ct}', json.dumps(r.json())[:limit])
         if ct in {'ctrigger', 'time', 'cmeasure', 'connect', 'info','install','imeasure'}:
-            for subct in ae[k]["cnt"][ct]:
+            for subct in ae[k][ct]:
                 url4 = F"{url3}/{subct}"
                 r = requests.get(url4, headers=h)
                 #if "m2m:dbg" in r.json():
                     #sys.exit()
-                print(url4, json.dumps(r.json()))
+                print(f'  {k}/{ct}/{subct}', json.dumps(r.json())[:limit])
+    print()

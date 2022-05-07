@@ -12,6 +12,7 @@ import random
 import requests
 import json
 from socket import *
+import select
 import os
 import sys
 import time
@@ -20,7 +21,9 @@ from datetime import datetime
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
+import zipfile
 
+import Periodical_status
 import create  #for Mobius resource
 import conf
 broker = conf.host
@@ -32,21 +35,14 @@ ae = conf.ae
 mqtt_realtime=True
 mqtt_measure=True
 
-
 root=conf.root
-
-# mqtt server TOPIC
-TOPIC_acc1 = conf.TOPIC_acc1
-TOPIC_acc2 = conf.TOPIC_acc2
-TOPIC_acc3 = conf.TOPIC_acc3
-TOPIC_dis = conf.TOPIC_dis
-TOPIC_tem = conf.TOPIC_tem
-TOPIC_deg = conf.TOPIC_deg
-
-TOPIC_callback="/oneM2M/req/cse-gnrb-mon/#"
+worktodo=""
+worktodo_param1=""
 
 mqtt_list = conf.mqtt_list
 samplerate_list = conf.samplerate_list
+TOPIC_callback=f'/oneM2M/req/{cse["name"]}/#'
+TOPIC_response=f'/oneM2M/resp/{cse["name"]}'
 TOPIC_list = conf.TOPIC_list
 mqttc=""
 command=""
@@ -89,18 +85,47 @@ def jsonSave(path, jsonFile):
     with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
         json.dump(jsonFile, f, indent=4)
 
+'''
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"reqstate"}'
 
-def do_user_command(ae, jcmd):
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setconnect","connect":{"cseip":"218.232.234.234","cseport":7579,"csename":"cse-gnrb-mon","cseid":"cse-gnrb-mon","mqttip":"218.232.234.234","mqttport":1883,"uploadip":"218.232.234.234","uploadport":80}}'
+
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"settrigger","ctrigger":{"use":"Y","mode":1,"st1high":200,"bfsec":0.015,"afsec":120}}'
+
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"settime","time":{"zone":"GMT+9","mode":3,"ip":"time.nist.gov","port":80,"period":600}}'
+
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity":20,"samplerate":100,"usefft":"Y"}'
+
+python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/teros.V2.23.bin"}'
+
+'''
+
+def save_conf():
+    with open(F"{root}/config.dat","w") as f:
+        f.write(json.dumps(ae),indent=4)
+    print(f"wrote confg.dat")
+
+def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
+    global ae, worktodo, worktodo_param1
     cmd=jcmd['cmd']
-    if cmd in {'reset'}:
-        create.allci(ae, {'info','config'})
-    elif cmd in {'reboot'}:
-        create.allci(ae, {'state'})
+    if cmd in {'reset','reboot'}:
+        os.system("sudo reboot")
     elif cmd in {'synctime'}:
-        pass
+        print('nothing to sync time')
     elif cmd in {'fwupdate'}:
-        pass
+        url= f'{jcmd["protocol"]}://{jcmd["ip"]}:{jcmd["port"]}{jcmd["path"]}'
+        print(f'fwupdate url={url}')
+        r = requests.get(url)
+        if not r.status_code == 200:
+            print(f'got {r.code}')
+            return
+        print(f'downloaded {len(r.text)} bytes')
+        
+        if not os.path.exists(F"{root}/fwupdate"): os.makedirs(F"{root}/fwupdate")
+        fname = datetime.now().strftime(f'{root}/fwupdate/%Y%m%d_%H%M%S')
+        with open(fname, "w") as f: f.write(r.text)
+
     elif cmd in {'realstart'}:
         print('start mqtt real tx')
         mqtt_realtime=True
@@ -108,15 +133,24 @@ def do_user_command(ae, jcmd):
         print('stop mqtt real tx')
         mqtt_realtime=False
     elif cmd in {'reqstate'}:
-        create.allci(ae, {'state'})
-    elif cmd in {'settrigger'}:
-        pass
+        print("create status ci")
+        Periodical_status.ci(aename, 'state')
+    elif cmd in {'settrigger','setmeasure'}:
+        if cmd=='settrigger':
+            print(f'set ctrigger= {jcmd["ctrigger"]}')
+            ae[aename]["config"]["ctrigger"]= jcmd["ctrigger"]
+        else:
+            print(f'set cmeasure= {jcmd["cmeasure"]}')
+            ae[aename]["config"]["cmeasure"]= jcmd["cmeasure"]
+        #do_config(aename)
+        worktodo = do_config
+        worktodo_param1 = aename
     elif cmd in {'settime'}:
-        pass
-    elif cmd in {'setmeasure'}:
-        pass
+        print(f'set time= {jcmd["time"]}')
+        ae[aename]["config"]["time"]= jcmd["time"]
     elif cmd in {'setconnect'}:
-        pass
+        print(f'set {aename}/connect= {jcmd["connect"]}')
+        ae[aename]["connect"]=jcmd["connect"]
     elif cmd in {'measurestart'}:
         print('start regular measure tx')
         mqtt_measure=True
@@ -139,6 +173,7 @@ def do_user_command(ae, jcmd):
 
 
 def got_callback(topic, msg):
+    global mqttc
     # 무슨이유인지 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
     # m.damoa.io는 5,  건기원은 4
     aename=topic[5] 
@@ -152,6 +187,18 @@ def got_callback(topic, msg):
         jcmd=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]
         print(f" ==> {aename} {jcmd}")
         do_user_command(aename, jcmd)
+
+        resp_topic=f'{TOPIC_response}/{aename}/json'
+        r = {};
+        r['m2m:rsp'] = {};
+        r['m2m:rsp']["rsc"] = 2001
+        r['m2m:rsp']["to"] = ''
+        r['m2m:rsp']["fr"] = aename
+        r['m2m:rsp']["rqi"] = j["rqi"]
+        r['m2m:rsp']["pc"] = '';
+        mqttc.publish(resp_topic, json.dumps(r))
+        print(f'response {resp_topic} {j["rqi"]}')
+
     else:
         print(' ==> not for me', topic, msg[:20],'...')
         return
@@ -201,7 +248,7 @@ def mqtt_sending(sensorType, data):
         else:
             count = 1
         BODY = {
-            "start":now.strftime("%Y-%m-%d-%H:%M:%S.%F"),
+            "start":now.strftime("%Y-%m-%d %H:%M:%S.%f"),
             "samplerate":samplerate_list[sensorType],
             "count":count,
             "data":data
@@ -209,8 +256,8 @@ def mqtt_sending(sensorType, data):
         mqttc.publish(TOPIC_list[sensorType], json.dumps(BODY))
     
 
-ClientSock = socket(AF_INET, SOCK_STREAM)
-ClientSock.connect(('127.0.0.1', 50000))
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect(('127.0.0.1', 50000))
 print("연결에 성공했습니다.")
 
 # create initial resources for Mobius
@@ -226,25 +273,49 @@ time_old=datetime.now()
 while True:
     if command.startswith("STATUS"):
         print('status')
-        ClientSock.sendall("STATUS".encode())
+        client_socket.sendall("STATUS".encode())
         command=""
     elif command.startswith("CONFIG"):
         print('config')
-        ClientSock.sendall("CONFIG".encode())
+        client_socket.sendall("CONFIG".encode())
         command=""
 '''
 
+def do_config(aename):
+    global client_socket
+    client_socket.sendall(("CONFIG"+json.dumps(ae[aename]["config"])).encode())
+
+    rData = client_socket.recv(10000)
+    rData = rData.decode('utf_8')
+    jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+
+    if jsonData["Status"] == "False":
+        ae[aename]["state"]["abflag"]="Y"
+        ae[aename]["state"]["abtime"]=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ae[aename]["state"]["abdesc"]="board config failed"
+        create.ci(aename, 'state','')
+        return
+
+    print(f'got result {jsonData}')
+
 def do_capture():
-    global ClientSock, mqtt_measure, time_old
+    global client_socket, mqtt_measure, time_old
+    global worktodo, worktodo_param1
+
+    if not worktodo=="":
+        print('call work to do')
+        worktodo(worktodo_param1)
+        worktodo=""
+        return
 
     if not mqtt_measure:
         print('no measure')
         return
 
     t1_start=process_time()
-    ClientSock.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
+    client_socket.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
 
-    rData = ClientSock.recv(10000)
+    rData = client_socket.recv(10000)
     t2_start=process_time()
     rData = rData.decode('utf_8')
     jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것

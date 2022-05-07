@@ -14,7 +14,13 @@ import socket
 import select
 import json
 import math
-import datetime
+from datetime import datetime
+import re
+
+import conf
+cse = conf.cse
+ae = conf.ae
+
 
 spi_bus = 0
 spi_device = 0
@@ -41,6 +47,30 @@ def send_data(cmd) :
     RXD = spi.xfer3(cmd)
     print(RXD)
     return RXD
+
+def time_conversion(stamp):
+    global BaseTimeStamp
+    global BaseTime
+    #t_delta = BaseTimeStamp - stamp    
+
+    #t_delta = stamp- BaseTimeStamp     
+    #return str(BaseTime + timedelta(milliseconds = t_delta))
+
+    c_delta = stamp - BaseTimeStamp
+    return str(BaseTime + timedelta(milliseconds = c_delta))
+
+
+def sync_time():
+    global BaseTime
+    global BaseTimeStamp
+    
+    BaseTime = datetime.now()
+    time.sleep(ds)  
+    spi.xfer2([0x27])
+    time.sleep(ds)  
+    status_data_i_got = spi.xfer2([0x0]*14)
+
+    BaseTimeStamp = status_data_i_got[3] << 24 | status_data_i_got[2] << 16 | status_data_i_got[1] << 8 | status_data_i_got[0]  - TimeCorrection
 
 # int Twos_Complement(string data, int length)
 # bit data를 int data로 바꾸어줍니다.
@@ -142,6 +172,10 @@ d = 1
 ds = 0.01
 d2 = 0.1
 n = 2400
+BaseTime = datetime.now()   # basetime , 처음 동작할 때 다시 초기화함
+
+BaseTimeStamp = 0
+TimeCorrection = int(ds * 1000) # FIXME
 
 isReady = False
 
@@ -234,28 +268,194 @@ def data_receiving():
         j=json.dumps(json_data)
         console_msg += F" {len(j)}B {j[0:60]} ..."
         return json_data
+
+def set_config_data(config_data):
+    temp_config = json.loads(config_data)
+    results = {} 
+    ttp = tdp = tti = tac = 0
+
+    global Offset
+    # set offset
+    # config_data  는 하나의  AE 즉 하나의 센서에 대한 설정값인데, AC, DI, TI, TP 4개를 다 처리??
+    # 어차피  function  내에서 사용하지 않음
+    #Offset['ac'] =  temp_config['cmeasure-ac']['offset']  
+    #Offset['di'] = temp_config['cmeasure-di']['offset']  
+    #Offset['ti'] = temp_config['cmeasure-ti']['offset']  
+    #Offset['tp'] = temp_config['cmeasure-tp']['offset']  
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     
-def do_command(command):
+    # making triger_seltect
+    #if temp_config['ctrigger-tp']['use'] == 'Y':
+    #    ttp = int(0x1000)
+
+    #if temp_config['ctrigger-di']['use'] == 'Y':
+    #    tdp = int(0x0800)
+
+    #if temp_config['ctrigger-ti']['use'] == 'Y':
+    #    tti = int(0x0200)
+
+    #if temp_config['ctrigger-ac']['use'] == 'Y':
+    #    tac = int(0x0100)
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    
+    # formatting for GBC data structure and tranmisssion (two bytes) 
+    # Revise latter!!!
+    results['samplingRate'] = 100       # hw fix 5/9
+    results['sensingDuration_l'] = 204  # fix 5/9, 432,000,000 = 19bfcc00 -> 00cc bf19
+    results['sensignDuration_h'] = 48921     # fix 5/9
+    results['measurePeriod'] = 600       # hw fix 5/9 
+
+    chval = 6
+    if ((chval < 256) and (chval>0)): 
+        results['dummy4'] = 0
+    results['uploadPeriod'] = chval       # hw fix 5/9
+    
+    chval = ttp|tdp|tti|tac
+    if ((chval < 256) and (chval>0)): 
+        results['dummy5'] = 0
+
+    
+    # making triger_seltect
+    #if temp_config['ctrigger-tp']['use'] == 'Y':
+        #ttp = int(0x1000)
+
+    #if temp_config['ctrigger-di']['use'] == 'Y':
+        #tdp = int(0x0800)
+
+    #if temp_config['ctrigger-ti']['use'] == 'Y':
+        #tti = int(0x0200)
+
+    #if temp_config['ctrigger-ac']['use'] == 'Y':
+        #tac = int(0x0100)
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    
+    # formatting for GBC data structure and tranmisssion (two bytes) 
+    # Revise latter!!!
+    results['samplingRate'] = 100       # hw fix 5/9
+    results['sensingDuration_l'] = 204  # fix 5/9, 432,000,000 = 19bfcc00 -> 00cc bf19
+    results['sensignDuration_h'] = 48921     # fix 5/9
+    results['measurePeriod'] = 600       # hw fix 5/9 
+
+    chval = 6
+    if ((chval < 256) and (chval>0)): 
+        results['dummy4'] = 0
+    results['uploadPeriod'] = chval       # hw fix 5/9
+    
+    chval = ttp|tdp|tti|tac
+    if ((chval < 256) and (chval>0)): 
+        results['dummy5'] = 0
+    results['sensorSelect'] = chval   
+
+    '''
+    chval = int(tohex1( int(temp_config['ctrigger-tp']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy6'] = 0
+    results['highTemp'] = chval      
+    
+    chval = int(tohex1( int(temp_config['ctrigger-tp']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy7'] = 0
+    results['lowTemp'] = chval      
+    
+    chval = int(tohex1( int(temp_config['ctrigger-di']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy8'] = 0
+    results['highDisp'] = chval      
+
+    chval = int(tohex1( int(temp_config['ctrigger-di']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy9'] = 0
+    results['lowDisp'] = chval      
+    '''
+
+    chval = 0 
+    if ((chval < 256) and (chval>0)): 
+        results['dummy10'] = 0
+    results['highStrain'] = chval       
+    
+    chval = 0 
+    if ((chval < 256) and (chval>0)): 
+        results['dummy11'] = 0
+    results['lowStrain'] = chval    
+
+    '''
+    chval = int(tohex1( int(temp_config['ctrigger-ti']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy12'] = 0
+    results['higTilt'] = chval   
+
+    chval = int(tohex1( int(temp_config['ctrigger-ti']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy13'] = 0
+    results['lowTilt'] = chval   
+
+    chval = int(tohex1( int(temp_config['ctrigger-ac']['st1high']/0.0039), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy14'] = 0
+    results['highAcc'] = chval       # hw fix 5/9
+
+    chval = int(tohex1( int(temp_config['ctrigger-ac']['st1low']/0.0039), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy15'] = 0
+    results['lowAcc'] = chval       # hw fix 5/9
+    '''
+
+    # end of formatting 
+    
+    return results 
+
+
+
+def get_status_data():
+    global BaseTime
+    
+    spi.xfer2([0x27])
+    time.sleep(ds)
+    status_data_i_got = spi.xfer2([0x0]*14)
+
+    timestamp   = status_data_i_got[3]  << 24 | status_data_i_got[2] << 16 | status_data_i_got[1] << 8 | status_data_i_got[0] - TimeCorrection
+    solar   = status_data_i_got[7]  << 8  | status_data_i_got[6]  
+    battery  = status_data_i_got[9]  << 8  | status_data_i_got[8]   
+    vdd     = status_data_i_got[11] << 8  | status_data_i_got[10]  
+
+    solar, battery, vdd = status_conversion(solar, battery, vdd)
+
+    status_data={}
+    status_data["timestamp"] = time_conversion( timestamp ) # board uptime 
+    status_data["resetFlag"] = status_data_i_got[5]  << 8  | status_data_i_got[4]   
+    status_data["solar"]     = solar #
+    status_data["battery"]   = battery #battery %
+    status_data["vdd"]       = vdd 
+    status_data["errcode"]   = status_data_i_got[13] << 8  | status_data_i_got[12]  
+    return(status_data)
+
+    
+def do_command(command, param):
 
     # init
     flag = True
     data = {}
     
     # main
-    if command == "START":
+    if command=="RESYNC":
+        sync_time()
+        ok_data = {"Status":"Ok"}
+        sending_data = json.dumps(ok_data)
+
+    if command=="START":
         flag = False
     elif command == "STOP":
         flag = False
-    elif command == "RESET":
+    elif command=="RESET":
         flag = False
     
     # 'upload' doesn't reach here
-    #elif command == "UPLOAD":
+    #elif command=="UPLOAD":
         '''
         sending_data = json.dumps(data)
         '''
 
-    elif command == "CAPTURE":
+    elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
         sending_data = json.dumps(data) 
@@ -280,53 +480,31 @@ def do_command(command):
         sending_data = json.dumps(data)
         '''
 
-    elif command == "STATUS":
-        '''
-        f = open('status.txt', 'r')
-        for header in STATUS:
-            tmp = f.readline().rstrip()
-            if tmp.isdigit():
-                data[header] = int(tmp)
-            elif "battery" in header:
-                data[header] = float(tmp)
-            else:
-                data[header] = tmp
-        '''
-        fail_data = {"Status":"False","Reason":"Not Implemented"}
-        sending_data = json.dumps(fail_data)
+    elif command=="STATUS":
+        d=get_status_data()
+        d["Status"]="Ok"
+        sending_data = json.dumps(d)
 
+    elif command=="CONFIG":
+        sending_config_data = [0x09]
+        Config_data = set_config_data(param)
+        #print(Config_data)
 
-    elif command == "CONFIG":
-        '''
-        tmp1 = {}
-        tmp2 = {}
-        
-        Configuration_data = client_socket.recv(1024)
-        Configuration_data = Configuration_data.decode()
-        Configuration_data = Configuration_data.rstrip() # delete '\n'
-        
-        config_data = json.loads(Configuration_data)
-        
-        Format = '%-20s%-20s%-20s\n'
-        _print = Format % ('key', 'data', 'data type')
-        
-        print("ctrigger")
-        for key in ctrigger_CONFIG:
-            _print += Format %(key, config_data["ctrigger"][key], type(config_data["ctrigger"][key]))
-        print(_print)
-        
-        _print = Format % ('key', 'data', 'data type')
-        print("cmeasure")
-        for key in cmeasure_CONFIG:
-            _print += Format %(key, config_data["cmeasure"][key], type(config_data["cmeasure"][key]))    
-        #print(_print)
-        '''
-        fail_data = {"Status":"False","Reason":"Not Implemented"}
-        sending_data = json.dumps(fail_data)
-        
+        # assuming all values are two bytes
+        for tmp in Config_data.values():
+            # convert order to GBC parsing
+            #sending_config_data.append(tmp >> 8)
+            #sending_config_data.append(tmp & 0xFF)
+            sending_config_data.append(tmp & 0xff) 
+            sending_config_data.append(tmp >> 8)
+        rcv = spi.xfer2(sending_config_data)
+        Config_data["Status"]="Ok"
+        sending_data = json.dumps(Config_data)
+        print('CONFIG returns ', sending_data)
     else:
         print('WRONG COMMAND: ', command)
-        sending_data = "502 Command Not implemented"
+        fail_data = {"Status":"False","Reason":"Wrong Command"}
+        sending_data = json.dumps(fail_data)
     
     if flag:
         #sending_data += '\n\n'
@@ -348,26 +526,32 @@ server_socket.listen(1)
 print("Socket ready to listen")
 
 client_socket, addr = server_socket.accept()
-client_socket.setblocking(False)
+#client_socket.setblocking(False)
 
 print('Connected by', addr)
 # 소켓 클라이언트와 연결
 
 
-time_old=datetime.datetime.now()
+time_old=datetime.now()
+sync_time()
 while(1) :
     # read Command
     if select.select([client_socket], [], [], 0.01)[0]: #ready? return in 0.01 sec
-        cmd = client_socket.recv(1024).decode().strip()
-        now=datetime.datetime.now()
-        if cmd == "CAPTURE":
+        data = client_socket.recv(1024).decode().strip()
+        m=re.match("(\w+)(.*)", data)
+        #print(m.groups())
+        if m:
+            cmd=m.groups()[0]
+            param=m.groups()[1]
+        else:
+            print('wrong ',data)
+            continue
+
+        now=datetime.now()
+        if cmd.startswith("CAPTURE"):
             console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec'
             time_old=now
         else:
             console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")}'
-        do_command(cmd)
+        do_command(cmd, param)
         print(console_msg)
-
-    
-client_socket.close()
-server_socket.close()

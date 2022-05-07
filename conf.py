@@ -1,15 +1,31 @@
-host="m.damoa.io"
+import os
+
+root='/home/pi/GB'
+
+# 아래 설정값은 최소 1회만 읽어가고 외부명려어로 값 설정이 있을 경우, 그 뒤부터는 'config.dat' 에 저장시켜두고 그것을 사용한다.
+# ctrl command 로 reset 을 실행하거나, config.dat 를 삭제하면 다시 아래값을 1회 읽어간다.
+
+#보드에 장착된 센서에 따라 아래 정의 지정
+#새보드 deploy 시 board와  bridge정의가 기본, 추가로 install 에 위치등 값 지정
+board=['AC1']
+#board=['AC1']
+#board=['AC1']
+#board=['TI']
+#board=['DI','TP']
+
+bridge='544444'  #교량코드
+
 #host="218.232.234.232"  #건교부 테스트 사이트
+host="m.damoa.io"
 port=1883
-bridge='323376'  #교량코드
 
 config_ctrigger={}
-config_ctrigger['AC1']={'use':'Y','mode':1,'st1high':200,'bfsec':0.015,'afsec':120}
-config_ctrigger['AC2']={'use':'Y','mode':1,'st1high':200,'bfsec':0.015,'afsec':120}
-config_ctrigger['AC3']={'use':'Y','mode':1,'st1high':200,'bfsec':0.015,'afsec':120}
-config_ctrigger['DI']={'use':'Y','mode':3,'st1high':60,'st1low':10}
-config_ctrigger['TP']={'use':'Y','mode':3,'st1high':60,'st1low':-20}
-config_ctrigger['TI']={'use':'Y','mode':1,'st1high':5}
+config_ctrigger["AC1"]={"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
+config_ctrigger["AC2"]={"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
+config_ctrigger["AC3"]={"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
+config_ctrigger["DI"]={"use":"N","mode":3,"st1high":60,"st1low":10,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
+config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
+config_ctrigger["TI"]={"use":"N","mode":1,"st1high":5,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
 
 config_time={'zone':'GMT+9','mode':3,'ip':'time.nist.gov','port':80,'period':600} #600sec
 
@@ -18,9 +34,9 @@ c2={'st1min':1.01, 'st1max':2.01, 'st2min':3.01, 'st2max':4.01, 'st3min':5.01, '
     'st5min':9.01, 'st5max':10.01, 'st6min':11.01, 'st6max':12.01, 'st7min':13.01, 'st7max':14.01, 'st8min':15.01, 'st8max':16.01,
     'st9min':17.01, 'st9max':18.01, 'st10min':19.01, 'st10max':20.01}
 config_cmeasure={}
-config_cmeasure['AC1']={'sensitivity':20,'samplerate':100,'usefft':'Y'}
-config_cmeasure['AC2']={'sensitivity':20,'samplerate':100,'usefft':'Y'}
-config_cmeasure['AC3']={'sensitivity':20,'samplerate':100,'usefft':'Y'}
+config_cmeasure['AC1']={'sensitivity':20,'samplerate':100,'usefft':'N'}
+config_cmeasure['AC2']={'sensitivity':20,'samplerate':100,'usefft':'N'}
+config_cmeasure['AC3']={'sensitivity':20,'samplerate':100,'usefft':'N'}
 config_cmeasure['DI']={'sensitivity':24,'samplerate':1/600,'usefft':'N'}
 config_cmeasure['TP']={'sensitivity':16,'samplerate':1/600,'usefft':'N'}
 config_cmeasure['TI']={'sensitivity':20,'samplerate':1/600,'usefft':'N'}
@@ -70,57 +86,61 @@ ctrl={'cmd':''}
 
 cse={'name':'cse-gnrb-mon'}
 ae={}
-ae[F'ae.{bridge}-AC_A1_01_X']={'name':'Accelerator', 'cnt':{'config':{'ctrigger':config_ctrigger['AC1'], 'time':config_time, 'cmeasure':config_cmeasure['AC1'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['AC1'], 'install':info_install['AC1'],'imeasure':info_imeasure['AC1']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
+if 'AC1' in board:
+    ae[F'ae.{bridge}-AC_A1_01_X']={
+        'config':{'ctrigger':config_ctrigger['AC1'], 'time':config_time, 'cmeasure':config_cmeasure['AC1'], 'connect':config_connect},
+        'info':{'manufacture':info_manufacture['AC1'], 'install':info_install['AC1'],'imeasure':info_imeasure['AC1']},
+        'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+        'state':state,
+        'ctrl':{"sub":1}
+    }
 
-ae[F'ae.{bridge}-AC_A1_02_X']={'name':'Accelerator', 'cnt':{'config':{'ctrigger':config_ctrigger['AC2'], 'time':config_time, 'cmeasure':config_cmeasure['AC2'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['AC2'], 'install':info_install['AC2'],'imeasure':info_imeasure['AC2']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
+if 'AC2' in board:
+	ae[F'ae.{bridge}-AC_A1_02_X']={
+	    'config':{'ctrigger':config_ctrigger['AC2'], 'time':config_time, 'cmeasure':config_cmeasure['AC2'], 'connect':config_connect},
+	    'info':{'manufacture':info_manufacture['AC2'], 'install':info_install['AC2'],'imeasure':info_imeasure['AC2']},
+	    'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+	    'state':state,
+	    'ctrl':{"sub":1}
+	}
+	
+if 'AC3' in board:
+	ae[F'ae.{bridge}-AC_A1_03_X']={
+	    'config':{'ctrigger':config_ctrigger['AC3'], 'time':config_time, 'cmeasure':config_cmeasure['AC3'], 'connect':config_connect},
+	    'info':{'manufacture':info_manufacture['AC3'], 'install':info_install['AC3'],'imeasure':info_imeasure['AC3']},
+	    'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+	    'state':state,
+	    'ctrl':{"sub":1}
+	}
+	
+if 'DI' in board:
+	ae[F'ae.{bridge}-DI_A1_01_X']={
+	    'config':{'ctrigger':config_ctrigger['DI'], 'time':config_time, 'cmeasure':config_cmeasure['DI'], 'connect':config_connect},
+	    'info':{'manufacture':info_manufacture['DI'], 'install':info_install['DI'],'imeasure':info_imeasure['DI']},
+	    'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+	    'state':state,
+	    'ctrl':{"sub":1}
+	}
+	
+if 'TP' in board:
+	ae[F'ae.{bridge}-TP_A1_01_X']={
+	    'config':{'ctrigger':config_ctrigger['TP'], 'time':config_time, 'cmeasure':config_cmeasure['TP'], 'connect':config_connect},
+	    'info':{'manufacture':info_manufacture['TP'], 'install':info_install['TP'],'imeasure':info_imeasure['TP']},
+	    'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+	    'state':state,
+	    'ctrl':{"sub":1}
+	}
+	
+if 'TI' in board:
+	ae[F'ae.{bridge}-TI_A1_01_X']={
+	    'config':{'ctrigger':config_ctrigger['TI'], 'time':config_time, 'cmeasure':config_cmeasure['TI'], 'connect':config_connect},
+	    'info':{'manufacture':info_manufacture['TI'], 'install':info_install['TI'],'imeasure':info_imeasure['TI']},
+	    'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
+	    'state':state,
+	    'ctrl':{"sub":1}
+	}
 
-ae[F'ae.{bridge}-AC_A1_03_X']={'name':'Accelerator', 'cnt':{'config':{'ctrigger':config_ctrigger['AC3'], 'time':config_time, 'cmeasure':config_cmeasure['AC3'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['AC3'], 'install':info_install['AC3'],'imeasure':info_imeasure['AC3']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
 
-ae[F'ae.{bridge}-DI_A1_01_X']={'name':'Displacement Guage', 'cnt':{'config':{'ctrigger':config_ctrigger['DI'], 'time':config_time, 'cmeasure':config_cmeasure['DI'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['DI'], 'install':info_install['DI'],'imeasure':info_imeasure['DI']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
-
-ae[F'ae.{bridge}-TP_A1_01_X']={'name':'Temperature', 'cnt':{'config':{'ctrigger':config_ctrigger['TP'], 'time':config_time, 'cmeasure':config_cmeasure['TP'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['TP'], 'install':info_install['TP'],'imeasure':info_imeasure['TP']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
-
-ae[F'ae.{bridge}-TI_A1_01_X']={'name':'Inclinometer', 'cnt':{'config':{'ctrigger':config_ctrigger['TI'], 'time':config_time, 'cmeasure':config_cmeasure['TI'], 'connect':config_connect},
-           'info':{'manufacture':info_manufacture['TI'], 'install':info_install['TI'],'imeasure':info_imeasure['TI']},
-           'data':{'dtrigger':{},'fft':{},'dmeasure':{}},
-           'state':state,
-           'ctrl':{"sub":1}}
-           }
-
-root='/home/pi/GB'
-
-# mqtt server TOPIC
-TOPIC_acc1 = F'/{cse["name"]}/ae.{bridge}-AC_A1_01_X/realtime'
-TOPIC_acc2 = F'/{cse["name"]}/ae.{bridge}-AC_A1_02_X/realtime'
-TOPIC_acc3 = F'/{cse["name"]}/ae.{bridge}-AC_A1_03_X/realtime'
-TOPIC_dis = F'/{cse["name"]}/ae.{bridge}-DI_A1_01_X/realtime'
-TOPIC_tem = F'/{cse["name"]}/ae.{bridge}-TP_A1_01_X/realtime'
-TOPIC_deg = F'/{cse["name"]}/ae.{bridge}-TI_A1_01_X/realtime'
 
 # mqtt를 사용할 것인지, 그렇다면 어느 센서의 데이터를 보낼지에 대한 딕셔너리
 mqtt_list = {
@@ -145,12 +165,12 @@ samplerate_list = {
     }
 
 TOPIC_list = {
-    "acc1":TOPIC_acc1,
-    "acc2":TOPIC_acc2,
-    "acc3":TOPIC_acc3,
-    "dis":TOPIC_dis,
-    "tem":TOPIC_tem,
-    "deg":TOPIC_deg
+    "acc1":F'/{cse["name"]}/ae.{bridge}-AC_A1_01_X/realtime',
+    "acc2":F'/{cse["name"]}/ae.{bridge}-AC_A1_02_X/realtime',
+    "acc3":F'/{cse["name"]}/ae.{bridge}-AC_A1_03_X/realtime',
+    "dis":F'/{cse["name"]}/ae.{bridge}-DI_A1_01_X/realtime',
+    "tem":F'/{cse["name"]}/ae.{bridge}-TP_A1_01_X/realtime',
+    "deg":F'/{cse["name"]}/ae.{bridge}-TI_A1_01_X/realtime'
     }
 
 FFT_data_acc = {
@@ -165,7 +185,12 @@ FFT_data_str = {
     "st1max":2.6
     }
     
+if os.path.exists(F"{root}/config.dat"): 
+    print('read from config.dat')
+    with open(F"{root}/config.dat") as f:
+        ae = json.load(f)
 
+print(f'read {list(ae.keys())}')
 
 if __name__ == "__main__":
     print(ae)

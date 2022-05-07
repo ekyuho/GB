@@ -3,12 +3,13 @@ import json
 import sys
 
 
-host="218.232.234.232"  #건교부 테스트 사이트
+#host="218.232.234.232"  #건교부 테스트 사이트
 host="m.damoa.io"  #건교부 테스트 사이트
 cse={'name':'cse-gnrb-mon'}
 
 def actuate(aename, cmd):
     print('Actuator')
+    j=json.loads(cmd)
     h={
         "Accept": "application/json",
         "X-M2M-RI": "12345",

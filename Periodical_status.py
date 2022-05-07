@@ -39,7 +39,7 @@ def ci(aename, cnt):
         }
     }
 
-    state={'battery':0,'memory':0,'disk':0,'cpu':0,'time':'yyyy-MM-dd HH:mm:ss.ffff','uptime':'?days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
+    state={'battery':100,'memory':0,'disk':0,'cpu':0,'time':'yyyy-MM-dd HH:mm:ss.ffff','uptime':'?days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':5}
 
     state['memory']=psutil.virtual_memory()[2]
     state['cpu']=psutil.cpu_percent()
@@ -57,19 +57,23 @@ def ci(aename, cnt):
     #print(url, body)
               
     r = requests.post(url, data=json.dumps(body), headers=h)
-    print(url, json.dumps(r.json()))
+    #print(url, json.dumps(r.json()))
     if "m2m:dbg" in r.json():
-        sys.exit()
+        print(f'got error {r.json}')
+    else:
+        print(f'created {url}/{r.json()["m2m:cin"]["rn"]}', json.dumps(r.json())[:100])
+
 
 def tick():
     for aei in ae:
         cnti ='state'
-        print(f'{aei}/{cnti}')
+        #print(f'{aei}/{cnti}')
         ci(aei, cnti)
 
     ae1 = list(ae.keys())[0]
-    print(f'set interval {ae[ae1]["cnt"]["config"]["cmeasure"]["stateperiod"]}')
-    threading.Timer(ae[ae1]["cnt"]["config"]["cmeasure"]["stateperiod"], tick).start()
+    print(f'set interval {ae[ae1]["config"]["cmeasure"]["stateperiod"]}')
+    threading.Timer(ae[ae1]["config"]["cmeasure"]["stateperiod"], tick).start()
 
-tick()
 
+if __name__ == "__main__":
+    tick()
