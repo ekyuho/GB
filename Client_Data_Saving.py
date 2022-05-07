@@ -108,7 +108,7 @@ def do_user_command(ae, jcmd):
         print('stop mqtt real tx')
         mqtt_realtime=False
     elif cmd in {'reqstate'}:
-        pass 
+        create.allci(ae, {'state'})
     elif cmd in {'settrigger'}:
         pass
     elif cmd in {'settime'}:
