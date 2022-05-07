@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from paho.mqtt import client as mqtt
 import start
-start.go()
+#start.go()
 
 import conf
 broker = conf.host

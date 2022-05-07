@@ -11,6 +11,7 @@ import spidev
 import time
 import numpy as np
 import socket
+import select
 import json
 import math
 import datetime
@@ -20,6 +21,8 @@ spi_device = 0
 spi = spidev.SpiDev()
 spi.open(spi_bus, spi_device)
 spi.max_speed_hz = 100000 #100MHz
+
+console_msg=""
 
 rq_cmd = [0x01]*6
 CMD_A = [0x10]*6
@@ -142,20 +145,6 @@ n = 2400
 
 isReady = False
 
-HOST = ''     # allow all
-PORT = 50000  # Use PORT 50000
-
-# Server socket
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_socket.bind((HOST, PORT))
-server_socket.listen(1)
-print("Socket ready to listen")
-
-client_socket, addr = server_socket.accept()
-print('Connected by', addr)
-# 소켓 클라이언트와 연결
-
 upload_HEADER = ["Timestamp", "Temperature", "Displacement"]
 capture_HEADER = ["Timestamp", "Temperature", "Displacement", "samplerate"]
 ctrigger_CONFIG = ["use", "mode", "st1high", "st1low", "bfsec"]
@@ -167,6 +156,7 @@ num_of_DATA = 2
 # 센서로부터 data bit를 받아, 그것을 적절한 int값으로 변환합니다.
 # return value는 모든 센서 데이터를 포함하고 있는 dictionary 데이터입니다.
 def data_receiving():
+    global console_msg
     #print("s:0x24")		# request header
     rcv1 = spi.xfer2([0x24])
     #print("header data signal")
@@ -188,7 +178,7 @@ def data_receiving():
         json_data["Status"] = status
     else:
         isReady = False
-        print("  ** data not ready")
+        console_msg += " ** device not ready"
         fail_data = {"Status":"False"}
         return fail_data
         
@@ -242,20 +232,10 @@ def data_receiving():
         json_data["Strain"] = strain_list
         time.sleep(d2)
         j=json.dumps(json_data)
-        print(F"  data sent {now.strftime('%Y-%m-%d %H:%M:%S')} +{(now-time_old).total_seconds()}sec {len(j)}B {j[0:80]} ...")
+        console_msg += F" {len(j)}B {j[0:60]} ..."
         return json_data
     
-time_old=datetime.datetime.now()
-while(1) :
-    
-    # read Command
-    command = client_socket.recv(1024)
-    command = command.decode()
-    command = command.rstrip() # delete '\n'
-    now=datetime.datetime.now()
-    if not command == "CAPTURE":
-        print('\n', command, now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
-    time_old=now
+def do_command(command):
 
     # init
     flag = True
@@ -353,9 +333,41 @@ while(1) :
 	    client_socket.sendall(sending_data.encode()) # encode UTF-8
         #print("Server -> Client :  ", sending_data)
     
-    else:
-        continue
-    
+#
+# Handing socket and commands
+#
+
+HOST = ''     # allow all
+PORT = 50000  # Use PORT 50000
+
+# Server socket
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_socket.bind((HOST, PORT))
+server_socket.listen(1)
+print("Socket ready to listen")
+
+client_socket, addr = server_socket.accept()
+client_socket.setblocking(False)
+
+print('Connected by', addr)
+# 소켓 클라이언트와 연결
+
+
+time_old=datetime.datetime.now()
+while(1) :
+    # read Command
+    if select.select([client_socket], [], [], 0.01)[0]: #ready? return in 0.01 sec
+        cmd = client_socket.recv(1024).decode().strip()
+        now=datetime.datetime.now()
+        if cmd == "CAPTURE":
+            console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec'
+            time_old=now
+        else:
+            console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")}'
+        do_command(cmd)
+        print(console_msg)
+
     
 client_socket.close()
 server_socket.close()
