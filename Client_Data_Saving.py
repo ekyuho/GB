@@ -29,6 +29,10 @@ bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
 
+mqtt_realtime=True
+mqtt_measure=True
+
+
 root=conf.root
 
 # mqtt server TOPIC
@@ -87,6 +91,7 @@ def jsonSave(path, jsonFile):
 
 
 def do_user_command(ae, jcmd):
+    global mqtt_realtime, mqtt_measure
     cmd=jcmd['cmd']
     if cmd in {'reset'}:
         create.allci(ae, {'info','config'})
@@ -97,9 +102,11 @@ def do_user_command(ae, jcmd):
     elif cmd in {'fwupdate'}:
         pass
     elif cmd in {'realstart'}:
-        pass 
+        print('start mqtt real tx')
+        mqtt_realtime=True
     elif cmd in {'realstop'}:
-        pass
+        print('stop mqtt real tx')
+        mqtt_realtime=False
     elif cmd in {'reqstate'}:
         pass 
     elif cmd in {'settrigger'}:
@@ -111,9 +118,12 @@ def do_user_command(ae, jcmd):
     elif cmd in {'setconnect'}:
         pass
     elif cmd in {'measurestart'}:
-        pass
-    elif cmd in {'meaurestop'}:
-        pass
+        print('start regular measure tx')
+        mqtt_measure=True
+    elif cmd in {'measurestop'}:
+        print('stop regular measure tx')
+        mqtt_measure=False
+        
 '''
     ClientSock.sendall(jcmd["cmd"].encode())
 
@@ -140,7 +150,7 @@ def got_callback(topic, msg):
             print(f"json error {msg}")
             return
         jcmd=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]
-        print(f" ==> {jcmd}")
+        print(f" ==> {aename} {jcmd}")
         do_user_command(aename, jcmd)
     else:
         print(' ==> not for me', topic, msg[:20],'...')
@@ -225,7 +235,12 @@ while True:
 '''
 
 def do_capture():
-    global ClientSock, time_old, t1_start
+    global ClientSock, mqtt_measure, time_old
+
+    if not mqtt_measure:
+        print('no measure')
+        return
+
     t1_start=process_time()
     ClientSock.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
 
@@ -265,7 +280,7 @@ def do_capture():
     Strain_json = jsonCreate("Strain", Time_data, Strain_data)
     
     # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
-    if mqtt_list["use"] == "Y":
+    if mqtt_list["use"] == "Y" and mqtt_realtime:  # mqtt_realtime is controlled from remote user
         mqtt_sending("acc1", Acceleration_json["data"])
         mqtt_sending("deg", Degree_json["data"])
         mqtt_sending("tem", Temperature_json["data"])
