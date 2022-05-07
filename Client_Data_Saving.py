@@ -7,6 +7,7 @@
 
 from encodings import utf_8
 import threading
+from threading import Timer
 import random
 import requests
 import json
@@ -20,7 +21,7 @@ from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
 
-import start
+import create  #for Mobius resource
 import conf
 broker = conf.host
 port = conf.port
@@ -84,6 +85,49 @@ def jsonSave(path, jsonFile):
     with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
         json.dump(jsonFile, f, indent=4)
 
+
+def do_user_command(ae, jcmd):
+    cmd=jcmd['cmd']
+    if cmd in {'reset'}:
+        create.allci(ae, {'info','config'})
+    elif cmd in {'reboot'}:
+        create.allci(ae, {'state'})
+    elif cmd in {'synctime'}:
+        pass
+    elif cmd in {'fwupdate'}:
+        pass
+    elif cmd in {'realstart'}:
+        pass 
+    elif cmd in {'realstop'}:
+        pass
+    elif cmd in {'reqstate'}:
+        pass 
+    elif cmd in {'settrigger'}:
+        pass
+    elif cmd in {'settime'}:
+        pass
+    elif cmd in {'setmeasure'}:
+        pass
+    elif cmd in {'setconnect'}:
+        pass
+    elif cmd in {'measurestart'}:
+        pass
+    elif cmd in {'meaurestop'}:
+        pass
+'''
+    ClientSock.sendall(jcmd["cmd"].encode())
+
+    rData = ClientSock.recv(10000).decode('utf_8')
+    j = json.loads(rData)
+
+    if j["Status"] == "False":
+        print(f' failed {json.dumps(j)}')
+        return
+    print(j)
+'''
+
+
+
 def got_callback(topic, msg):
     # 무슨이유인지 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
     # m.damoa.io는 5,  건기원은 4
@@ -97,20 +141,10 @@ def got_callback(topic, msg):
             return
         jcmd=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]
         print(f" ==> {jcmd}")
-        return
+        do_user_command(aename, jcmd)
     else:
         print(' ==> not for me', topic, msg[:20],'...')
         return
-    
-    ClientSock.sendall(jcmd["cmd"].encode())
-
-    rData = ClientSock.recv(10000).decode('utf_8')
-    j = json.loads(rData)
-
-    if j["Status"] == "False":
-        print(f' failed {json.dumps(j)}')
-        return
-    print(j)
 
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
@@ -168,14 +202,14 @@ def mqtt_sending(sensorType, data):
 ClientSock = socket(AF_INET, SOCK_STREAM)
 ClientSock.connect(('127.0.0.1', 50000))
 print("연결에 성공했습니다.")
-print("Using:")
-i=1
-for x in list(ae.keys()):
-    print(f"{i}. {x}")
-    i+=1
 
 # create initial resources for Mobius
-#start.go()
+def init_resource():
+    print("Create init resource:")
+    for x in list(ae.keys()):
+        print(f" for {x}")
+        create.allci(x, {'ctrigger', 'time', 'cmeasure', 'connect', 'info','install','imeasure'})
+
 
 time_old=datetime.now()
 '''
@@ -249,3 +283,4 @@ def do_capture():
 	
 # every 0.9 sec
 RepeatedTimer(0.9, do_capture)
+Timer(10, init_resource).start()
