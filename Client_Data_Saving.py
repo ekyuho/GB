@@ -6,7 +6,7 @@
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
 
 from encodings import utf_8
-#import threading
+import threading
 import random
 import requests
 import json
@@ -14,11 +14,13 @@ from socket import *
 import os
 import sys
 import time
+from time import process_time
 from datetime import datetime
 from paho.mqtt import client as mqtt
-import start
-#start.go()
+from events import Events
+from RepeatedTimer import RepeatedTimer
 
+import start
 import conf
 broker = conf.host
 port = conf.port
@@ -97,6 +99,19 @@ def got_callback(topic, msg):
         print(f"got {command} \n{j}")
     else:
         print('  Callback: not for me', topic, msg[:20],'...')
+    '''
+    ClientSock.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
+
+    jsonData = ClientSock.recv(10000)
+    jsonData = jsonData.decode('utf_8')
+    jsonData = json.loads(jsonData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+    now=datetime.now()
+
+    if jsonData["Status"] == "False":
+        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec')
+        time_old=now
+        return
+    '''
 
 
 def connect_mqtt():
@@ -161,8 +176,11 @@ for x in list(ae.keys()):
     print(f"{i}. {x}")
     i+=1
 
+# create initial resources for Mobius
+#start.go()
 
 time_old=datetime.now()
+'''
 while True:
     if command.startswith("STATUS"):
         print('status')
@@ -172,60 +190,66 @@ while True:
         print('config')
         ClientSock.sendall("CONFIG".encode())
         command=""
-    else:
-        ClientSock.sendall("CAPTURE".encode()) # 0.9초에 1번 socket server로 'CAPTURE' 명령어를 송신합니다.
+'''
 
-    jsonData = ClientSock.recv(10000)
-    jsonData = jsonData.decode('utf_8')
-    jsonData = json.loads(jsonData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+def do_capture():
+    global ClientSock, time_old, t1_start
+    t1_start=process_time()
+    ClientSock.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
+
+    rData = ClientSock.recv(10000)
+    t2_start=process_time()
+    rData = rData.decode('utf_8')
+    jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
     now=datetime.now()
+
     if jsonData["Status"] == "False":
-        print("** no data", now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
+        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec')
         time_old=now
-    else:
-        print("data ok", now.strftime("(%Y-%m-%d %H:%M:%S)"), f"+{(now-time_old).total_seconds()}sec")
-        time_old=now
-        Time_data = jsonData["Timestamp"]
-        Temperature_data = jsonData["Temperature"]
-        Displacement_data = jsonData["Displacement"]["ch4"]
-        
-        acc_list = list()
-        str_list = list()
-        
-        for i in range(len(jsonData["Acceleration"])):
-            acc_list.append(jsonData["Acceleration"][i][acc_axis])
-        for i in range(len(jsonData["Strain"])):
-            str_list.append(jsonData["Strain"][i][str_axis])
-        
-        Acceleration_data = acc_list
-        Strain_data = str_list
-        Degree_data = jsonData["Degree"][deg_axis]
-        
-        # 센서의 특성을 고려해 각 센서 별로 센서 data를 담은 dict 생성
-        Degree_json = jsonCreate("Degree", Time_data, Degree_data)
-        Temperature_json = jsonCreate("Temperature", Time_data, Temperature_data)
-        Displacement_json = jsonCreate("Displacement", Time_data, Displacement_data)
-        Acceleration_json = jsonCreate("Acceleration", Time_data, Acceleration_data)
-        Strain_json = jsonCreate("Strain", Time_data, Strain_data)
-        
-        # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
-        if mqtt_list["use"] == "Y":
-            mqtt_sending("acc1", Acceleration_json["data"])
-            mqtt_sending("deg", Degree_json["data"])
-            mqtt_sending("tem", Temperature_json["data"])
-            mqtt_sending("dis", Displacement_json["data"])
-            #print('publish realtime mqtt')
-        
-        # 센서별 json file 생성
-        jsonSave(deg_path, Degree_json)
-        jsonSave(tem_path, Temperature_json)
-        jsonSave(dis_path, Displacement_json)
-        jsonSave(acc_path, Acceleration_json)
-        jsonSave(str_path, Strain_json)
+        return
+    
+    time_old=now
+    Time_data = jsonData["Timestamp"]
+    Temperature_data = jsonData["Temperature"]
+    Displacement_data = jsonData["Displacement"]["ch4"]
+    
+    acc_list = list()
+    str_list = list()
+    
+    for i in range(len(jsonData["Acceleration"])):
+        acc_list.append(jsonData["Acceleration"][i][acc_axis])
+    for i in range(len(jsonData["Strain"])):
+        str_list.append(jsonData["Strain"][i][str_axis])
+    
+    Acceleration_data = acc_list
+    Strain_data = str_list
+    Degree_data = jsonData["Degree"][deg_axis]
+    
+    # 센서의 특성을 고려해 각 센서 별로 센서 data를 담은 dict 생성
+    Degree_json = jsonCreate("Degree", Time_data, Degree_data)
+    Temperature_json = jsonCreate("Temperature", Time_data, Temperature_data)
+    Displacement_json = jsonCreate("Displacement", Time_data, Displacement_data)
+    Acceleration_json = jsonCreate("Acceleration", Time_data, Acceleration_data)
+    Strain_json = jsonCreate("Strain", Time_data, Strain_data)
+    
+    # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
+    if mqtt_list["use"] == "Y":
+        mqtt_sending("acc1", Acceleration_json["data"])
+        mqtt_sending("deg", Degree_json["data"])
+        mqtt_sending("tem", Temperature_json["data"])
+        mqtt_sending("dis", Displacement_json["data"])
+        #print('publish realtime mqtt')
+    
+    # 센서별 json file 생성
+    jsonSave(deg_path, Degree_json)
+    jsonSave(tem_path, Temperature_json)
+    jsonSave(dis_path, Displacement_json)
+    jsonSave(acc_path, Acceleration_json)
+    jsonSave(str_path, Strain_json)
+
+    print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 	
+# every 0.9 sec
+RepeatedTimer(0.9, do_capture)
 
-    #명령은 약 0.9초에 1번 보낸다            
-    time.sleep(0.9)
-
-
-ClientSock.close()
+#ClientSock.close()

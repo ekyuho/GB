@@ -4,6 +4,7 @@ import sys
 
 
 host="218.232.234.232"  #건교부 테스트 사이트
+host="m.damoa.io"  #건교부 테스트 사이트
 cse={'name':'cse-gnrb-mon'}
 
 def actuate(aename, cmd):
@@ -31,5 +32,5 @@ if len(sys.argv) <2:
 else:
     print(sys.argv)
 
-actuate(f'{sys.argv[1]}','{"cmd":"CONFIG","method":"{bla bla..}"}')
+actuate(f'{sys.argv[1]}','{"cmd":"STATE","method":"{bla bla..}"}')
 print('actuate', f'{sys.argv[1]}')
