@@ -86,33 +86,31 @@ def jsonSave(path, jsonFile):
 
 def got_callback(topic, msg):
     # 무슨이유인지 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
+    # m.damoa.io는 5,  건기원은 4
     aename=topic[5] 
     if aename in ae:
-        print('  Callback: got command for me =====>')
-        print(topic, aename,  msg)
+        #print(topic, aename,  msg)
         try:
             j=json.loads(msg)
         except:
             print(f"json error {msg}")
             return
-        command=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]["cmd"]
-        print(f"got {command} \n{j}")
-    else:
-        print('  Callback: not for me', topic, msg[:20],'...')
-    '''
-    ClientSock.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
-
-    jsonData = ClientSock.recv(10000)
-    jsonData = jsonData.decode('utf_8')
-    jsonData = json.loads(jsonData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
-    now=datetime.now()
-
-    if jsonData["Status"] == "False":
-        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec')
-        time_old=now
+        jcmd=j["pc"]["m2m:sgn"]["nev"]["rep"]["m2m:cin"]["con"]
+        print(f" ==> {jcmd}")
         return
-    '''
+    else:
+        print(' ==> not for me', topic, msg[:20],'...')
+        return
+    
+    ClientSock.sendall(jcmd["cmd"].encode())
 
+    rData = ClientSock.recv(10000).decode('utf_8')
+    j = json.loads(rData)
+
+    if j["Status"] == "False":
+        print(f' failed {json.dumps(j)}')
+        return
+    print(j)
 
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
@@ -251,5 +249,3 @@ def do_capture():
 	
 # every 0.9 sec
 RepeatedTimer(0.9, do_capture)
-
-#ClientSock.close()

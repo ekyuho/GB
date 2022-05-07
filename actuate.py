@@ -25,12 +25,12 @@ def actuate(aename, cmd):
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(url, json.dumps(r.json()))
 
-if len(sys.argv) <2:
-    print('Usage: python3 actuate.py ae.023356-AC_A1_01_X')
+if len(sys.argv) <3:
+    print('Usage: python3 actuate.py ae.023356-AC_A1_01_X \'{"cmd":"reset"}\'')
     print(sys.argv)
     sys.exit()
 else:
     print(sys.argv)
 
-actuate(f'{sys.argv[1]}','{"cmd":"STATE","method":"{bla bla..}"}')
-print('actuate', f'{sys.argv[1]}')
+actuate(f'{sys.argv[1]}',f'{sys.argv[2]}')
+print('actuate', f'{sys.argv[1]}', f'{sys.argv[2]}')
