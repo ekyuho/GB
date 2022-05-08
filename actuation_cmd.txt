@@ -1,15 +1,15 @@
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"reqstate"}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"reqstate"}'
 
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setconnect","connect":{"cseip":"218.232.234.234","cseport":7579,"csename":"cse-gnrb-mon","cseid":"cse-gnrb-mon","mqttip":"218.232.234.234","mqttport":1883,"uploadip":"218.232.234.234","uploadport":80}}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"setconnect","connect":{"cseip":"218.232.234.234","cseport":7579,"csename":"cse-gnrb-mon","cseid":"cse-gnrb-mon","mqttip":"218.232.234.234","mqttport":1883,"uploadip":"218.232.234.234","uploadport":80}}'
 
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"settime","time":{"zone":"GMT+9","mode":3,"ip":"time.nist.gov","port":80,"period":600}}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"settime","time":{"zone":"GMT+9","mode":3,"ip":"time.nist.gov","port":80,"period":600}}'
 
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity":20,"samplerate":100,"usefft":"Y"}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity":20,"samplerate":100,"usefft":"Y"}'
 
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/teros.V2.23.bin"}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/teros.V2.23.bin"}'
 
-python3 actuate.py ae.544444-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/create.py"}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/create.py"}'
 
-python3 actuate.py ae.544444-AC_A1_01_X '{"cmd":"settrigger","ctrigger":{"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"settrigger","ctrigger":{"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}}'
 
-python3 actuate.py ae.544444-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity": 20, "samplerate": 100, "usefft": "N", "offset": 0, "measureperiod": 20, "stateperiod": 60, "rawperiod": 60, "st1min": 1.01, "st1max": 2.01, "st2min": 3.01, "st2max": 4.01, "st3min": 5.01, "st3max": 6.01, "st4min": 7.01, "st4max": 8.01, "st5min": 9.01, "st5max": 10.01, "st6min": 11.01, "st6max": 12.01, "st7min": 13.01, "st7max": 14.01, "st8min": 15.01, "st8max": 16.01, "st9min": 17.01, "st9max": 18.01, "st10min": 19.01, "st10max": 20.01}}'
+python3 actuate.py ae.1100001-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity": 20, "samplerate": 100, "usefft": "N", "offset": 0, "measureperiod": 20, "stateperiod": 60, "rawperiod": 60, "st1min": 1.01, "st1max": 2.01, "st2min": 3.01, "st2max": 4.01, "st3min": 5.01, "st3max": 6.01, "st4min": 7.01, "st4max": 8.01, "st5min": 9.01, "st5max": 10.01, "st6min": 11.01, "st6max": 12.01, "st7min": 13.01, "st7max": 14.01, "st8min": 15.01, "st8max": 16.01, "st9min": 17.01, "st9max": 18.01, "st10min": 19.01, "st10max": 20.01}}'
