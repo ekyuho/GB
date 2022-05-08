@@ -22,6 +22,7 @@ from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
 import zipfile
+import shutil
 
 import Periodical_status
 import create  #for Mobius resource
@@ -102,14 +103,22 @@ python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip
 
 def save_conf():
     with open(F"{root}/config.dat","w") as f:
-        f.write(json.dumps(ae),indent=4)
+        f.write(json.dumps(ae, ensure_ascii=False,indent=4))
     print(f"wrote confg.dat")
 
 def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
     global ae, worktodo, worktodo_param1
     cmd=jcmd['cmd']
-    if cmd in {'reset','reboot'}:
+    if 'reset' in cmd:
+        file=f"{root}/config.dat"
+        if os.path.exists(file): 
+            os.remove(file)
+            print(f'removed {file}')
+        else:
+            print(f'no {file} to delete')
+        os.system("sudo reboot")
+    elif 'reboot' in cmd:
         os.system("sudo reboot")
     elif cmd in {'synctime'}:
         print('nothing to sync time')
@@ -125,7 +134,11 @@ def do_user_command(aename, jcmd):
         if not os.path.exists(F"{root}/fwupdate"): os.makedirs(F"{root}/fwupdate")
         fname = datetime.now().strftime(f'{root}/fwupdate/%Y%m%d_%H%M%S')
         with open(fname, "w") as f: f.write(r.text)
-
+        print(f'created {fname} {os.ath.getsize(f"{root}/fwupdate/%Y%m%d_%H%M%S")} bytes')
+        shutil.copyfile(fname, f'{root}/Server_Data_Sending.py')
+        print(f'done deploy')
+        with open(f'{root}/newfile.txt', "w") as f: f.write(r.text)
+        os.system("sudo reboot")
     elif cmd in {'realstart'}:
         print('start mqtt real tx')
         mqtt_realtime=True
@@ -165,7 +178,7 @@ def do_user_command(aename, jcmd):
     j = json.loads(rData)
 
     if j["Status"] == "False":
-        print(f' failed {json.dumps(j)}')
+        print(f' failed {json.dumps(j, ensure_ascii=False)}')
         return
     print(j)
 '''
@@ -194,7 +207,7 @@ def got_callback(topic, msg):
         r['m2m:rsp']["fr"] = aename
         r['m2m:rsp']["rqi"] = j["rqi"]
         r['m2m:rsp']["pc"] = '';
-        mqttc.publish(resp_topic, json.dumps(r))
+        mqttc.publish(resp_topic, json.dumps(r, ensure_ascii=False))
         print(f'response {resp_topic} {j["rqi"]}')
 
     else:
@@ -251,7 +264,7 @@ def mqtt_sending(sensorType, data):
             "count":count,
             "data":data
             }
-        mqttc.publish(TOPIC_list[sensorType], json.dumps(BODY))
+        mqttc.publish(TOPIC_list[sensorType], json.dumps(BODY, ensure_ascii=False))
     
 
 client_socket = socket(AF_INET, SOCK_STREAM)
@@ -281,7 +294,7 @@ while True:
 
 def do_config(aename):
     global client_socket
-    client_socket.sendall(("CONFIG"+json.dumps(ae[aename]["config"])).encode())
+    client_socket.sendall(("CONFIG"+json.dumps({"aename":aename, "config":ae[aename]["config"]}, ensure_ascii=False)).encode())
 
     rData = client_socket.recv(10000)
     rData = rData.decode('utf_8')
@@ -295,6 +308,9 @@ def do_config(aename):
         return
 
     print(f'got result {jsonData}')
+    create.ci(aename, 'state','')
+    save_conf()
+
 
 def do_capture():
     global client_socket, mqtt_measure, time_old

@@ -7,8 +7,6 @@
 #   5/6 변위식 수정. 추후 인하대쪽 코드와 통합할 예정입니다, 주수아
 #   5/5 making robust를 위한 작업들, 김규호 
 
-VERSION="V1.1"
-
 import spidev
 import time
 import numpy as np
@@ -17,9 +15,7 @@ import select
 import json
 import math
 from datetime import datetime
-from datetime import timedelta
 import re
-import os
 
 import conf
 cse = conf.cse
@@ -33,8 +29,6 @@ spi.open(spi_bus, spi_device)
 spi.max_speed_hz = 100000 #100MHz
 
 console_msg=""
-#하드웨어 보드의 설정상태 저장
-board_setting = {} 
 
 rq_cmd = [0x01]*6
 CMD_A = [0x10]*6
@@ -65,12 +59,6 @@ def time_conversion(stamp):
     c_delta = stamp - BaseTimeStamp
     return str(BaseTime + timedelta(milliseconds = c_delta))
 
-def status_conversion(solar, battery, vdd):
-    solar   = 0.003013 * solar + 1.2824
-    battery = battery / 4096 * 100  # 12-bit
-    vdd     = vdd / 4096 * 100      # 12-bit
-
-    return solar, battery, vdd
 
 def sync_time():
     global BaseTime
@@ -104,17 +92,16 @@ def Twos_Complement(data, length):
     
 # int basic_conversion(list number_list)
 # convert whole bit data to demical
-# it doesn't support two's complement.  
-#  
+# if first bit is '1', it calculates minus value according to Two's Complement
+# 현재 큰 의미 없는 코드
 def basic_conversion(number_list):
     result_str = ''
-    #for i in range(len(number_list)):
-    for i in reversed(range(len(number_list))):
+    for i in range(len(number_list)):
         result_hex = hex(number_list[i])[2:]
-        if len(result_hex)<2:
-            result_hex = '0'+result_hex
         result_str += result_hex
-    return result_str
+    result = int(result_str, 16)
+    result = -(result & 0x80000000) | (result & 0x7fffffff)
+    return result
 
 # int dis_conversion(list number_list)
 # convert whole displacement bit data to demical
@@ -185,7 +172,9 @@ d = 1
 ds = 0.01
 d2 = 0.1
 n = 2400
+BaseTime = datetime.now()   # basetime , 처음 동작할 때 다시 초기화함
 
+BaseTimeStamp = 0
 TimeCorrection = int(ds * 1000) # FIXME
 
 isReady = False
@@ -197,21 +186,11 @@ cmeasure_CONFIG = ["sensitivity", "samplerate", "measureperiod", "stateperiod", 
 STATUS = ["ibattery", "ebattery", "count", "abflag", "abtime", "abdesc"]
 num_of_DATA = 2
 
-Config_datas = {}        # config data 담을 dict
-Status_datas = {}        # status data 담을 dict
-BaseTimeStamp = 0
-BaseTime = datetime.now()   # basetime , 처음 동작할 때 다시 초기화함
-TimeCorrection = int(ds * 1000) # FIXME
-
-# AE별 global offset value, defaulted to 0
-Offset={'ac':0,'di':0,'ti':0,'tp':0}
-
 # dict data_receiving()
 # 센서로부터 data bit를 받아, 그것을 적절한 int값으로 변환합니다.
 # return value는 모든 센서 데이터를 포함하고 있는 dictionary 데이터입니다.
 def data_receiving():
     global console_msg
-    global Offset
     #print("s:0x24")		# request header
     rcv1 = spi.xfer2([0x24])
     #print("header data signal")
@@ -247,24 +226,12 @@ def data_receiving():
         #print("s:"+ "0x40")
         rcv4 = spi.xfer2([0x40]*16) # follow up action
         #print(rcv4)
-        """
         degreeX = deg_conversion(rcv4[0:2])
         degreeY = deg_conversion(rcv4[2:4])
         degreeZ = deg_conversion(rcv4[4:6])
         Temperature = tem_conversion(rcv4[6:8])
         Displacement_ch4 = dis_conversion(rcv4[8:12])
         Displacement_ch5 = basic_conversion(rcv4[12:])
-        """
-        degreeX = deg_conversion(rcv4[0:2]) + Offset['ti'] 
-        degreeY = deg_conversion(rcv4[2:4]) + Offset['ti'] 
-        degreeZ = deg_conversion(rcv4[4:6]) + Offset['ti'] 
-        Temperature = tem_conversion(rcv4[6:8]) + Offset['tp'] 
-        Displacement_ch4 = dis_conversion(rcv4[8:12]) + Offset['di']
-        # 얘는 스트링 헥사코드를 리턴하는 넘이라, 스트링 변환전에 더해주어야 함 일단은 제거하고 넘어감
-        ###XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        #Displacement_ch5 = basic_conversion(rcv4[12:]) + Offset['di']
-        Displacement_ch5 = basic_conversion(rcv4[12:])
-        ###XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         json_data["Degree"] = {"x":degreeX, "y":degreeY, "z":degreeZ}
         json_data["Temperature"] = Temperature
@@ -284,84 +251,159 @@ def data_receiving():
         strain_list = list()
         for i in range(100):
             cycle = i*24
-            ax = acc_conversion(rcv6[0+cycle:4+cycle]) + Offset['ac'] 
-            ay = acc_conversion(rcv6[4+cycle:8+cycle]) + Offset['ac'] 
-            az = acc_conversion(rcv6[8+cycle:12+cycle]) + Offset['ac'] 
-            acc_list.append({"x":ax, "y":ay, "z":az})
-            #acc_list.append([ax, ay, az])
-            """
             ax = acc_conversion(rcv6[0+cycle:4+cycle])
             ay = acc_conversion(rcv6[4+cycle:8+cycle])
             az = acc_conversion(rcv6[8+cycle:12+cycle])
-            """
+            acc_list.append({"x":ax, "y":ay, "z":az})
+            #acc_list.append([ax, ay, az])
             sx = basic_conversion(rcv6[12+cycle:16+cycle])
             sy = basic_conversion(rcv6[16+cycle:20+cycle])
             sz = basic_conversion(rcv6[20+cycle:24+cycle])
             strain_list.append({"x":sx, "y":sy, "z":sz})
-            #strain_list.append([sx, sy, sz])           
+            #strain_list.append([sx, sy, sz])
 
         json_data["Acceleration"] = acc_list
         json_data["Strain"] = strain_list
         time.sleep(d2)
-        j=json.dumps(json_data, ensure_ascii=False)
+        j=json.dumps(json_data)
         console_msg += F" {len(j)}B {j[0:60]} ..."
         return json_data
 
 def set_config_data(config_data):
-    jdata = json.loads(config_data)
-    aename=jdata["aename"]
-    config=jdata["config"]
-
-    print(f'set_config({aename} {config["ctrigger"]} {config["cmeasure"]}')
+    temp_config = json.loads(config_data)
+    results = {} 
+    ttp = tdp = tti = tac = 0
 
     global Offset
-    # set offset, already defauled to 0
-    if '-AC_' in aename: Offset['ac'] = config['cmeasure']['offset']  
-    if '-DI_' in aename: Offset['di'] = config['cmeasure']['offset']  
-    if '-TI_' in aename: Offset['ti'] = config['cmeasure']['offset']  
-    if '-TP_' in aename: Offset['tp'] = config['cmeasure']['offset']  
+    # set offset
+    # config_data  는 하나의  AE 즉 하나의 센서에 대한 설정값인데, AC, DI, TI, TP 4개를 다 처리??
+    # 어차피  function  내에서 사용하지 않음
+    #Offset['ac'] =  temp_config['cmeasure-ac']['offset']  
+    #Offset['di'] = temp_config['cmeasure-di']['offset']  
+    #Offset['ti'] = temp_config['cmeasure-ti']['offset']  
+    #Offset['tp'] = temp_config['cmeasure-tp']['offset']  
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     
     # making triger_seltect
-    ttp = tdi = tti = tac = 0
-    tp1h = tp1l = di1h = di1l = ti1h = ti1l = ac1h = 0
+    #if temp_config['ctrigger-tp']['use'] == 'Y':
+    #    ttp = int(0x1000)
 
-    if '-AC_' in aename and 'use' in config['ctrigger'] and config['ctrigger']['use'] in {'Y','y'}: 
-        tac = int(0x0100)
-        if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): ac1h = int(config['ctrigger']['st1high'])
-    if '-DI_' in aename and 'use' in config['ctrigger'] and config['ctrigger']['use'] in {'Y','y'}:
-        tdi = int(0x0800)
-        if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): di1h = int(config['ctrigger']['st1high'])
-        if 'st1low' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): di1l = int(config['ctrigger']['st1low'])
-        di1l = config['ctrigger']['st1low']
-    if '-TI_' in aename and 'use' in config['ctrigger'] and config['ctrigger']['use'] in {'Y','y'}:
-        tti = int(0x0200)
-        if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): ti1h = int(config['ctrigger']['st1high'])
-        if 'st1low' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): ti1l = int(config['ctrigger']['st1low'])
-    if '-TP_' in aename and 'use' in config['ctrigger'] and config['ctrigger']['use'] in {'Y','y'}:
-        ttp = int(0x1000)
-        if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1h = int(config['ctrigger']['st1high'])
-        if 'st1low' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1l = int(config['ctrigger']['st1low'])
+    #if temp_config['ctrigger-di']['use'] == 'Y':
+    #    tdp = int(0x0800)
 
+    #if temp_config['ctrigger-ti']['use'] == 'Y':
+    #    tti = int(0x0200)
+
+    #if temp_config['ctrigger-ac']['use'] == 'Y':
+    #    tac = int(0x0100)
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    
     # formatting for GBC data structure and tranmisssion (two bytes) 
     # Revise latter!!!
-    global board_setting
-    board_setting['samplingRate'] =   int(np.uint16(100))           # hw fix 5/9
-    board_setting['sensingDuration'] = int(np.uint16(12*60*60))     # hw fix 5/9
-    board_setting['measurePeriod'] =  int(np.uint16(1))             # SC support 5/9 
-    board_setting['uploadPeriod'] =   int(np.uint16(6))             # hSC support 5/9
-    board_setting['sensorSelect'] =   int(np.uint16(ttp|tdi|tti|tac))
-    board_setting['highTemp'] =       int(np.int16(tp1h*100))
-    board_setting['lowTemp'] =        int(np.int16(tp1l*100))
-    board_setting['highDisp'] =       int(np.int16(di1h*100))
-    board_setting['lowDisp'] =        int(np.int16(di1l*100))
-    board_setting['highStrain'] =     int(np.int16(0))
-    board_setting['lowStrain'] =      int(np.int16(0))
-    board_setting['highTilt'] =       int(np.int16(ti1h*100))
-    board_setting['lowTilt'] =        int(np.int16(ti1l*100))
-    board_setting['highAcc'] =        int(np.uint16(ac1h/0.0039/16))
-    board_setting['lowAcc'] =         int(np.int16(0))       # hw fix 5/9
+    results['samplingRate'] = 100       # hw fix 5/9
+    results['sensingDuration_l'] = 204  # fix 5/9, 432,000,000 = 19bfcc00 -> 00cc bf19
+    results['sensignDuration_h'] = 48921     # fix 5/9
+    results['measurePeriod'] = 600       # hw fix 5/9 
+
+    chval = 6
+    if ((chval < 256) and (chval>0)): 
+        results['dummy4'] = 0
+    results['uploadPeriod'] = chval       # hw fix 5/9
+    
+    chval = ttp|tdp|tti|tac
+    if ((chval < 256) and (chval>0)): 
+        results['dummy5'] = 0
+
+    
+    # making triger_seltect
+    #if temp_config['ctrigger-tp']['use'] == 'Y':
+        #ttp = int(0x1000)
+
+    #if temp_config['ctrigger-di']['use'] == 'Y':
+        #tdp = int(0x0800)
+
+    #if temp_config['ctrigger-ti']['use'] == 'Y':
+        #tti = int(0x0200)
+
+    #if temp_config['ctrigger-ac']['use'] == 'Y':
+        #tac = int(0x0100)
+    ####XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    
+    # formatting for GBC data structure and tranmisssion (two bytes) 
+    # Revise latter!!!
+    results['samplingRate'] = 100       # hw fix 5/9
+    results['sensingDuration_l'] = 204  # fix 5/9, 432,000,000 = 19bfcc00 -> 00cc bf19
+    results['sensignDuration_h'] = 48921     # fix 5/9
+    results['measurePeriod'] = 600       # hw fix 5/9 
+
+    chval = 6
+    if ((chval < 256) and (chval>0)): 
+        results['dummy4'] = 0
+    results['uploadPeriod'] = chval       # hw fix 5/9
+    
+    chval = ttp|tdp|tti|tac
+    if ((chval < 256) and (chval>0)): 
+        results['dummy5'] = 0
+    results['sensorSelect'] = chval   
+
+    '''
+    chval = int(tohex1( int(temp_config['ctrigger-tp']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy6'] = 0
+    results['highTemp'] = chval      
+    
+    chval = int(tohex1( int(temp_config['ctrigger-tp']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy7'] = 0
+    results['lowTemp'] = chval      
+    
+    chval = int(tohex1( int(temp_config['ctrigger-di']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy8'] = 0
+    results['highDisp'] = chval      
+
+    chval = int(tohex1( int(temp_config['ctrigger-di']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy9'] = 0
+    results['lowDisp'] = chval      
+    '''
+
+    chval = 0 
+    if ((chval < 256) and (chval>0)): 
+        results['dummy10'] = 0
+    results['highStrain'] = chval       
+    
+    chval = 0 
+    if ((chval < 256) and (chval>0)): 
+        results['dummy11'] = 0
+    results['lowStrain'] = chval    
+
+    '''
+    chval = int(tohex1( int(temp_config['ctrigger-ti']['st1high']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy12'] = 0
+    results['higTilt'] = chval   
+
+    chval = int(tohex1( int(temp_config['ctrigger-ti']['st1low']*100), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy13'] = 0
+    results['lowTilt'] = chval   
+
+    chval = int(tohex1( int(temp_config['ctrigger-ac']['st1high']/0.0039), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy14'] = 0
+    results['highAcc'] = chval       # hw fix 5/9
+
+    chval = int(tohex1( int(temp_config['ctrigger-ac']['st1low']/0.0039), 16),16)
+    if ((chval < 256) and (chval>0)): 
+        results['dummy15'] = 0
+    results['lowAcc'] = chval       # hw fix 5/9
+    '''
+
     # end of formatting 
-    return board_setting 
+    
+    return results 
+
 
 
 def get_status_data():
@@ -398,7 +440,7 @@ def do_command(command, param):
     if command=="RESYNC":
         sync_time()
         ok_data = {"Status":"Ok"}
-        sending_data = json.dumps(ok_data, ensure_ascii=False)
+        sending_data = json.dumps(ok_data)
 
     if command=="START":
         flag = False
@@ -410,13 +452,13 @@ def do_command(command, param):
     # 'upload' doesn't reach here
     #elif command=="UPLOAD":
         '''
-        sending_data = json.dumps(data, ensure_ascii=False)
+        sending_data = json.dumps(data)
         '''
 
     elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
-        sending_data = json.dumps(data, ensure_ascii=False) 
+        sending_data = json.dumps(data) 
         '''
         f = open('capture.txt', 'r')
         for header in capture_HEADER:
@@ -435,13 +477,13 @@ def do_command(command, param):
             tmp_string += f.readline().rstrip()
         data["ds"] = tmp_string
                 
-        sending_data = json.dumps(data, ensure_ascii=False)
+        sending_data = json.dumps(data)
         '''
 
     elif command=="STATUS":
         d=get_status_data()
         d["Status"]="Ok"
-        sending_data = json.dumps(d, ensure_ascii=False)
+        sending_data = json.dumps(d)
 
     elif command=="CONFIG":
         sending_config_data = [0x09]
@@ -456,13 +498,13 @@ def do_command(command, param):
             sending_config_data.append(tmp & 0xff) 
             sending_config_data.append(tmp >> 8)
         rcv = spi.xfer2(sending_config_data)
-        ok_data = {"Status":"Ok"}
-        sending_data = json.dumps(ok_data, ensure_ascii=False)
+        Config_data["Status"]="Ok"
+        sending_data = json.dumps(Config_data)
         print('CONFIG returns ', sending_data)
     else:
         print('WRONG COMMAND: ', command)
         fail_data = {"Status":"False","Reason":"Wrong Command"}
-        sending_data = json.dumps(fail_data, ensure_ascii=False)
+        sending_data = json.dumps(fail_data)
     
     if flag:
         #sending_data += '\n\n'
@@ -489,13 +531,6 @@ client_socket, addr = server_socket.accept()
 print('Connected by', addr)
 # 소켓 클라이언트와 연결
 
-root='/home/pi/GB'
-if os.path.exists(f'{root}/newfile.txt'):
-    os.remove(f'{root}/newfile.txt')
-    for aename in ae:
-        ae[aename]["info"]["manufacture"]["fwver"]=VERSION
-        create.ci(aename, 'info', 'manufacture')
-
 
 time_old=datetime.now()
 sync_time()
@@ -510,7 +545,8 @@ while(1) :
             if len(m.groups())>1:
                 param=m.groups()[1]
         else:
-            continue
+            cmd=data
+            param=""
 
         now=datetime.now()
         if cmd.startswith("CAPTURE"):

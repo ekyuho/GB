@@ -1,4 +1,5 @@
 import os
+import json
 
 root='/home/pi/GB'
 
@@ -188,7 +189,13 @@ FFT_data_str = {
 if os.path.exists(F"{root}/config.dat"): 
     print('read from config.dat')
     with open(F"{root}/config.dat") as f:
-        ae = json.load(f)
+        try:
+            ae = json.load(f)
+        except ValueError as e:
+            print(e)
+            print('wrong config.dat')
+else:
+    print('read from conf.py')
 
 print(f'read {list(ae.keys())}')
 
