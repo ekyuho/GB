@@ -174,9 +174,7 @@ def do_user_command(aename, jcmd):
 
 def got_callback(topic, msg):
     global mqttc
-    # 무슨이유인지 4 or 5 두개가 왔다갔다... ㅠ  보고 처리요망
-    # m.damoa.io는 5,  건기원은 4
-    aename=topic[5] 
+    aename=topic[4] 
     if aename in ae:
         #print(topic, aename,  msg)
         try:

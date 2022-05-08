@@ -13,10 +13,10 @@ board=['AC1']
 #board=['TI']
 #board=['DI','TP']
 
-bridge='544444'  #교량코드
+bridge='1100001'  #교량코드
 
-#host="218.232.234.232"  #건교부 테스트 사이트
-host="m.damoa.io"
+host="218.232.234.232"  #건교부 테스트 사이트
+#host="m.damoa.io"
 port=1883
 
 config_ctrigger={}
@@ -78,7 +78,7 @@ info_imeasure['TI']={'mode':'S','type':'TI','item':'경사(각도)','range':'0~9
 
 data_dtrigger={}
 
-state={'battery':0,'memory':0,'disk':0,'cpu':0,'time':'yyyy-MM-dd HH:mm:ss.ffff','uptime':'?days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
+state={'battery':0,'memory':0,'disk':0,'cpu':0,'time':'yyyy-MM-dd HH:mm:ss.ffff','uptime':'0 days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
 
 ctrl={'cmd':''}
 # 'reset','reboot  synctime','fwupdate','realstart','realstop','reqstate','settrigger','settime','setmeasure','setconnect','measurestart','meaurestop'

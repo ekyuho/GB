@@ -542,10 +542,11 @@ while(1) :
         #print(m.groups())
         if m:
             cmd=m.groups()[0]
-            param=m.groups()[1]
+            if len(m.groups())>1:
+                param=m.groups()[1]
         else:
-            print('wrong ',data)
-            continue
+            cmd=data
+            param=""
 
         now=datetime.now()
         if cmd.startswith("CAPTURE"):

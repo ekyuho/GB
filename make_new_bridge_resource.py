@@ -79,7 +79,7 @@ def create_sub(aename):
         "enc": {
           "net": [3]
         },
-        "nu": [F'mqtt://{host}/{cse["name"]}/{aename}?ct=json'],
+        "nu": [F'mqtt://{host}/{aename}?ct=json'],
         "exc": 10
       }
     }
