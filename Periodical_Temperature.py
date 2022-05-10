@@ -13,15 +13,23 @@ import time
 from datetime import datetime
 import numpy as np
 
-measuring = True
-measureperiod = 10 # sec
-
 import conf
 host = conf.host
 port = conf.port
 bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
+
+this_ae = ""
+
+# ae리스트에서 온도 센서의 ae이름을 가져온다
+for k in ae:
+    if "-TP_" in k:
+        this_ae = k
+        break
+
+cmeasure = ae[this_ae]["config"]["cmeasure"]
+measureperiod = cmeasure["measureperiod"] # 단위는 sec
 
 root=conf.root
 

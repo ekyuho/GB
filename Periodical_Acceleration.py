@@ -5,6 +5,7 @@
 # FFT 연산을 사용하는 경우, FFT 연산 후 peak값에 해당하는 hrz를 반환하고, data->FFT 컨텐트인스턴스를 생성합니다.
 
 from encodings import utf_8
+#from msvcrt import kbhit
 import threading
 import requests
 import json
@@ -14,17 +15,25 @@ import time
 from datetime import datetime
 import numpy as np
 
-measuring = True
-measureperiod = 30 # 단위는 sec
-
 import conf
 host = conf.host
 port = conf.port
 bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
-FFT_data = conf.FFT_data_acc
-samplerate = conf.samplerate_list["acc"]
+#samplerate = conf.samplerate_list["acc1"]
+
+this_ae = ""
+
+# ae리스트에서 가속도 센서의 ae이름을 가져온다
+for k in ae:
+    if "-AC_" in k:
+        this_ae = k
+        break
+
+cmeasure = ae[this_ae]["config"]["cmeasure"]
+measureperiod = cmeasure["measureperiod"] # 단위는 sec
+samplerate = int(cmeasure["samplerate"])
 
 root=conf.root
 
@@ -43,17 +52,17 @@ def find_pathlist():
     for i in range (len(file_list)):
         file_time = os.path.getmtime(path+'/'+file_list[i])
         time_gap = present_time-file_time
-        if time_gap <= measureperiod and time_gap > measureperiod//2: # 추후 데이터 수집 범위 10분으로 고정 예정
+        if time_gap <= measureperiod: # 추후 데이터 수집 범위 10분으로 고정 예정
             data_path_list.append(path+'/'+file_list[i])
             print(file_list[i])
     return data_path_list
 
 # double FFT(data_list)
 # 리스트의 가장 오래된 1024개의 데이터를 받아, FFT 연산을 시행합니다.
-# FFT_data에 기록된 st1min, st1max를 기반으로 peak을 찾아내어, peak에 해당하는 헤르츠를 찾아냅니다.
+# cmeasure에 기록된 st1min, st1max를 기반으로 peak을 찾아내어, peak에 해당하는 헤르츠를 찾아냅니다.
 def FFT(data_list):
     global samplerate
-    global FFT_data
+    global cmeasure
 
     FFT_fail = -1
 
@@ -76,9 +85,9 @@ def FFT(data_list):
     data_FFT_X = np.arange(FFT_const, FFT_const*1025, FFT_const)
     data_peak_range = list()
     for i in range(len(data_FFT_X)):
-        if data_FFT_X[i] >= FFT_data["st1min"] and data_FFT_X[i] <= FFT_data["st1max"]:
+        if data_FFT_X[i] >= cmeasure["st1min"] and data_FFT_X[i] <= cmeasure["st1max"]:
             data_peak_range.append(i)
-        if data_FFT_X[i] > FFT_data["st1max"]: # 데이터가 범위를 벗어나기 시작했다면, 더이상 반복문을 수행하지 않음
+        if data_FFT_X[i] > cmeasure["st1max"]: # 데이터가 범위를 벗어나기 시작했다면, 더이상 반복문을 수행하지 않음
             break
     # peak를 측정할 범위 내에 속하는 데이터가 전혀 없는 경우, FFT는 실패
     # 예 : st1min이 100, st1max가 1000.. 이런 식일 경우
@@ -98,7 +107,7 @@ def FFT(data_list):
 # def void read(string aename)
 # 입력받은 aename을 가진 oneM2M 서버에 통계값을 포함한 컨텐트인스턴스 생성 명령을 보냅니다.
 def read(aename):
-    global FFT_data
+    global cmeasure
     #print('6.Read sensor')
     path_list = find_pathlist()
     now = datetime.now()
@@ -151,7 +160,7 @@ def read(aename):
         #각각의 연산을 수행한 후, body에 삽입합니다.
 
         r = requests.post(url, data=json.dumps(body), headers=h)
-        if FFT_data["use"] == "Y":
+        if cmeasure["usefft"] == "Y":
             hrz = FFT(data_list)
             if hrz != -1 : #FFT 연산에 성공한 경우에만 hrz 기록
                 body_FFT = {
@@ -168,7 +177,7 @@ def read(aename):
         print(url, json.dumps(r.json()))
 
 def tick():
-    read('ae.025742-AC_A1_02_X') # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함
+    read(this_ae) # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함 > 수정 완료. 테스트 진행중.
     threading.Timer(measureperiod, tick).start()
     
 time.sleep(measureperiod) #실행된 후, measureperiod만큼의 시간이 지나야 첫 전송을 시행합니다.
