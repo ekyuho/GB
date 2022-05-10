@@ -11,7 +11,6 @@ from datetime import datetime
 import conf
 host = conf.host
 port = conf.port
-bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
 

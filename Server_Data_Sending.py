@@ -20,10 +20,6 @@ from datetime import datetime
 from datetime import timedelta
 import re
 import os
-import create
-import conf
-cse = conf.cse
-ae = conf.ae
 
 
 spi_bus = 0
@@ -230,7 +226,7 @@ BaseTime = datetime.now()   # basetime , 처음 동작할 때 다시 초기화�
 TimeCorrection = int(ds * 1000) # FIXME
 
 # AE별 global offset value, defaulted to 0
-Offset={'ac':0,'di':0,'ti':0,'tp':0}
+Offset={'AC':0,'DI':0,'TI':0,'TP':0}
 
 # dict data_receiving()
 # 센서로부터 data bit를 받아, 그것을 적절한 int값으로 변환합니다.
@@ -282,13 +278,13 @@ def data_receiving():
         Displacement_ch4 = dis_conversion(rcv4[8:12])
         Displacement_ch5 = basic_conversion(rcv4[12:])
         """
-        degreeX = deg_conversion(rcv4[0:2]) + Offset['ti'] 
-        degreeY = deg_conversion(rcv4[2:4]) + Offset['ti'] 
-        degreeZ = deg_conversion(rcv4[4:6]) + Offset['ti'] 
-        Temperature = tem_conversion(rcv4[6:8]) + Offset['tp'] 
-        Displacement_ch4 = dis_conversion(rcv4[8:12]) + Offset['di']
+        degreeX = deg_conversion(rcv4[0:2]) + Offset['TI'] 
+        degreeY = deg_conversion(rcv4[2:4]) + Offset['TI'] 
+        degreeZ = deg_conversion(rcv4[4:6]) + Offset['TI'] 
+        Temperature = tem_conversion(rcv4[6:8]) + Offset['TP'] 
+        Displacement_ch4 = dis_conversion(rcv4[8:12]) + Offset['DI']
         # 식을 dis_conversion으로 변경하여 해결하였음
-        Displacement_ch5 = dis_conversion(rcv4[12:]) + Offset['di']
+        Displacement_ch5 = dis_conversion(rcv4[12:]) + Offset['DI']
         json_data["Degree"] = {"x":degreeX, "y":degreeY, "z":degreeZ}
         json_data["Temperature"] = Temperature
         json_data["Displacement"] = {"ch4":Displacement_ch4, "ch5":Displacement_ch5}
@@ -307,9 +303,9 @@ def data_receiving():
         strain_list = list()
         for i in range(100):
             cycle = i*24
-            ax = acc_conversion(rcv6[0+cycle:4+cycle]) + Offset['ac'] 
-            ay = acc_conversion(rcv6[4+cycle:8+cycle]) + Offset['ac'] 
-            az = acc_conversion(rcv6[8+cycle:12+cycle]) + Offset['ac'] 
+            ax = acc_conversion(rcv6[0+cycle:4+cycle]) + Offset['AC'] 
+            ay = acc_conversion(rcv6[4+cycle:8+cycle]) + Offset['AC'] 
+            az = acc_conversion(rcv6[8+cycle:12+cycle]) + Offset['AC'] 
             acc_list.append({"x":ax, "y":ay, "z":az})
             #acc_list.append([ax, ay, az])
             """
@@ -332,19 +328,27 @@ def data_receiving():
 
 def set_config_data(config_data):
     jdata = json.loads(config_data)
-    aename=jdata["aename"]
-    config=jdata["config"]
 
-    print(f'set_config({aename} {config["ctrigger"]} {config["cmeasure"]}')
+    print(f'set_config {jdata}')
 
     global Offset
     # set offset, already defauled to 0
+    '''
     if '-AC_' in aename: Offset['ac'] = config['cmeasure']['offset']  
     if '-DI_' in aename: Offset['di'] = config['cmeasure']['offset']  
     if '-TI_' in aename: Offset['ti'] = config['cmeasure']['offset']  
     if '-TP_' in aename: Offset['tp'] = config['cmeasure']['offset']  
+    '''
+
+    sel_sensor=0
+    for stype in jdata:
+        Offset[stype]=jdata[stype]['offset']
+        if jdata[stype]['use']=='Y': 
+            sel_sensor += jdata[stype]['select']
+        
     
     # making triger_seltect
+    '''
     ttp = tdi = tti = tac = 0
     tp1h = tp1l = di1h = di1l = ti1h = ti1l = ac1h = 0
 
@@ -364,6 +368,8 @@ def set_config_data(config_data):
         ttp = int(0x1000)
         if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1h = int(config['ctrigger']['st1high'])
         if 'st1low' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1l = int(config['ctrigger']['st1low'])
+    '''
+ 
 
     # formatting for GBC data structure and tranmisssion (two bytes) 
     # Revise latter!!!
@@ -372,16 +378,17 @@ def set_config_data(config_data):
     board_setting['sensingDuration'] = int(np.uint16(12*60*60))     # hw fix 5/9
     board_setting['measurePeriod'] =  int(np.uint16(1))             # SC support 5/9 
     board_setting['uploadPeriod'] =   int(np.uint16(6))             # hSC support 5/9
-    board_setting['sensorSelect'] =   int(np.uint16(ttp|tdi|tti|tac))
-    board_setting['highTemp'] =       int(np.int16(tp1h*100))
-    board_setting['lowTemp'] =        int(np.int16(tp1l*100))
-    board_setting['highDisp'] =       int(np.int16(di1h*100))
-    board_setting['lowDisp'] =        int(np.int16(di1l*100))
+    #board_setting['sensorSelect'] =   int(np.uint16(ttp|tdi|tti|tac))
+    board_setting['sensorSelect'] =   int(np.uint16(sel_sensor))
+    board_setting['highTemp'] =       int(np.int16(jdata['TP']['st1high']*100))
+    board_setting['lowTemp'] =        int(np.int16(jdata['TP']['st1low']*100))
+    board_setting['highDisp'] =       int(np.int16(jdata['DI']['st1high']*100))
+    board_setting['lowDisp'] =        int(np.int16(jdata['DI']['st1low']*100))
     board_setting['highStrain'] =     int(np.int16(0))
     board_setting['lowStrain'] =      int(np.int16(0))
-    board_setting['highTilt'] =       int(np.int16(ti1h*100))
-    board_setting['lowTilt'] =        int(np.int16(ti1l*100))
-    board_setting['highAcc'] =        int(np.uint16(ac1h/0.0039/16))
+    board_setting['highTilt'] =       int(np.int16(jdata['TI']['st1high']*100))
+    board_setting['lowTilt'] =        int(np.int16(jdata['TI']['st1low']*100))
+    board_setting['highAcc'] =        int(np.uint16(jdata['AC']['st1high']/0.0039/16))
     board_setting['lowAcc'] =         int(np.int16(0))       # hw fix 5/9
     # end of formatting 
     return board_setting 
@@ -512,14 +519,6 @@ client_socket, addr = server_socket.accept()
 print('Connected by', addr)
 # 소켓 클라이언트와 연결
 
-root='/home/pi/GB'
-if os.path.exists(f'{root}/newfile.txt'):
-    os.remove(f'{root}/newfile.txt')
-    for aename in ae:
-        ae[aename]["info"]["manufacture"]["fwver"]=VERSION
-        create.ci(aename, 'info', 'manufacture')
-
-
 time_old=datetime.now()
 sync_time()
 while(1) :
@@ -537,9 +536,9 @@ while(1) :
 
         now=datetime.now()
         if cmd.startswith("CAPTURE"):
-            console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec'
+            console_msg=f'{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec'
             time_old=now
         else:
-            console_msg=f'\n{cmd} {now.strftime("%H:%M:%S")}'
+            console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'
         do_command(cmd, param)
         print(console_msg)

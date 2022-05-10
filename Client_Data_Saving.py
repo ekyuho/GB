@@ -24,24 +24,19 @@ from RepeatedTimer import RepeatedTimer
 import zipfile
 import shutil
 
-import Periodical_status
+import periodic_state
+import periodic_acceleration
 import create  #for Mobius resource
 import conf
 broker = conf.host
 port = conf.port
-bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
-
-mqtt_realtime=True
-mqtt_measure=True
 
 root=conf.root
 worktodo=""
 worktodo_param1=""
 
-mqtt_list = conf.mqtt_list
-samplerate_list = conf.samplerate_list
 TOPIC_callback=f'/oneM2M/req/{cse["name"]}/#'
 TOPIC_response=f'/oneM2M/resp/{cse["name"]}'
 TOPIC_list = conf.TOPIC_list
@@ -76,6 +71,9 @@ def jsonCreate(dataType, timeData, realData):
         "data":realData
         }
     return data
+
+def sensor_type(aename):
+    return aename.split('-')[1][0:2]
 
 # void jsonSave(path, jsonFile)
 # 받은 dict를 json으로 변환한 후, 지정된 path에 저장합니다.
@@ -242,34 +240,34 @@ def connect_mqtt():
 
 mqttc = connect_mqtt()
 mqttc.loop_start()
+print("mqtt 연결에 성공했습니다.")
 
         
-# void mqtt_sending(sensorType, data)
+# void mqtt_sending(aename, data)
 # mqtt 전송을 수행합니다. 단, mqtt 전송을 사용하지 않기로 한 센서라면, 수행하지 않습니다.
 # 센서에 따라 다른 TOPIC에 mqtt 메시지를 publish합니다.
-def mqtt_sending(sensorType, data):   
+def mqtt_sending(aename, data):   
     if mqttc=="":
         connect_mqtt()
 
-    if mqtt_list[sensorType]=="Y":
-        now = datetime.now()
-        test_list = list()
-        if type(data) == type(test_list):
-            count = len(data)
-        else:
-            count = 1
-        BODY = {
-            "start":now.strftime("%Y-%m-%d %H:%M:%S.%f"),
-            "samplerate":samplerate_list[sensorType],
-            "count":count,
-            "data":data
-            }
-        mqttc.publish(TOPIC_list[sensorType], json.dumps(BODY, ensure_ascii=False))
+    now = datetime.now()
+    test_list = list()
+    if type(data) == type(test_list):
+        count = len(data)
+    else:
+        count = 1
+    BODY = {
+        "start":now.strftime("%Y-%m-%d %H:%M:%S.%f"),
+        "samplerate":int(ae[aename]["config"]["cmeasure"]['samplerate']),
+        "count":count,
+        "data":data
+        }
+    mqttc.publish(F'/{cse["name"]}/{aename}/realtime', json.dumps(BODY, ensure_ascii=False))
     
 
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(('127.0.0.1', 50000))
-print("연결에 성공했습니다.")
+print("socket 연결에 성공했습니다.")
 
 # create initial resources for Mobius
 def init_resource():
@@ -280,21 +278,28 @@ def init_resource():
 
 
 time_old=datetime.now()
-'''
-while True:
-    if command.startswith("STATUS"):
-        print('status')
-        client_socket.sendall("STATUS".encode())
-        command=""
-    elif command.startswith("CONFIG"):
-        print('config')
-        client_socket.sendall("CONFIG".encode())
-        command=""
-'''
 
-def do_config(aename):
+def do_config(targetae):
     global client_socket
-    client_socket.sendall(("CONFIG"+json.dumps({"aename":aename, "config":ae[aename]["config"]}, ensure_ascii=False)).encode())
+    global ae
+
+    setting={ 'AC':{'select':0x0100,'use':'N','st1high':0,'st1low':0, 'offset':0},
+                'DI':{'select':0x0800,'use':'N','st1high':0,'st1low':0, 'offset':0},
+                'TI':{'select':0x0200,'use':'N','st1high':0,'st1low':0, 'offset':0},
+                'TP':{'select':0x1000,'use':'N','st1high':0,'st1low':0, 'offset':0}}
+    for aename in ae:
+        cmeasure = ae[aename]['config']['cmeasure']
+        if 'offset' in cmeasure:
+            setting[sensor_type(aename)]['offset'] = cmeasure['offset']
+        ctrigger = ae[aename]['config']['ctrigger']
+        if 'use' in ctrigger:
+            setting[sensor_type(aename)]['use'] = ctrigger['use']
+            if 'st1high' in ctrigger and str(ctrigger['st1high']).isnumeric(): setting[sensor_type(aename)]['st1high']= int(ctrigger['st1high'])
+            if 'st1low' in ctrigger and str(ctrigger['st1low']).isnumeric(): setting[sensor_type(aename)]['st1low']= int(ctrigger['st1low'])
+            
+        
+
+    client_socket.sendall(("CONFIG"+json.dumps(setting, ensure_ascii=False)).encode())
 
     rData = client_socket.recv(10000)
     rData = rData.decode('utf_8')
@@ -308,8 +313,12 @@ def do_config(aename):
         return
 
     print(f'got result {jsonData}')
-    create.ci(aename, 'state','')
-    save_conf()
+    if targetae == "START":
+        for aename in ae:
+            create.ci(aename, 'state','')
+    else:
+        create.ci(targetae, 'state','')
+        save_conf()
 
 
 def do_capture():
@@ -320,10 +329,6 @@ def do_capture():
         print('call work to do')
         worktodo(worktodo_param1)
         worktodo=""
-        return
-
-    if not mqtt_measure:
-        print('no measure')
         return
 
     t1_start=process_time()
@@ -365,22 +370,69 @@ def do_capture():
     Strain_json = jsonCreate("Strain", Time_data, Strain_data)
     
     # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
-    if mqtt_list["use"] == "Y" and mqtt_realtime:  # mqtt_realtime is controlled from remote user
-        mqtt_sending("acc1", Acceleration_json["data"])
-        mqtt_sending("deg", Degree_json["data"])
-        mqtt_sending("tem", Temperature_json["data"])
-        mqtt_sending("dis", Displacement_json["data"])
-        #print('publish realtime mqtt')
+    # 내 device의 ae에 지정된 sensor type 정보만을 전송
+    for aename in ae:
+        # stype 은 'AC' 와 같은 부분
+        stype = sensor_type(aename)
+        #print(f"mqtt {aename} {stype} {ae[aename]['local']['realstart']}")
+        if ae[aename]['local']['realstart']=='Y':  # mqtt_realtime is controlled from remote user
+            if stype=='AC': payload = Acceleration_json["data"]
+            elif stype=='TI': payload = Degree_json["data"]
+            elif stype=='TP': payload = Temperature_json["data"]
+            elif stype=='DI': payload = Displacement_json["data"]
+
+            #print(F'real mqtt /{cse["name"]}/{aename}/realtime')
+            mqtt_sending(aename, payload)
+
     
     # 센서별 json file 생성
-    jsonSave(deg_path, Degree_json)
-    jsonSave(tem_path, Temperature_json)
-    jsonSave(dis_path, Displacement_json)
-    jsonSave(acc_path, Acceleration_json)
-    jsonSave(str_path, Strain_json)
+    # 내 ae에 지정된 sensor type정보만을 저장
+    for aename in ae:
+        stype = sensor_type(aename)
+        stype = aename.split('-')[1][0:2]  # 'ae.10000001-AC_SIM_01_X'  이런거에서 'AC' 같은것만 추출
+        if stype=='TI': jsonSave(deg_path, Degree_json)
+        elif stype=='TP': jsonSave(tem_path, Temperature_json)
+        elif stype=='DI': jsonSave(dis_path, Displacement_json)
+        elif stype=='AC': jsonSave(acc_path, Acceleration_json)
 
     print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
+
+
+def do_measure_report():
+    global ae
+    for aename in ae:
+        if sensor_type(aename)=='AC':
+            periodic_acceleration.report()
+        else:
+            print('not yet implmented')
+
+
+if os.path.exists(f'{root}/newfile.txt'):
+    os.remove(f'{root}/newfile.txt')
+    print('found firmware update. create ci for firmware verison update')
+    for aename in ae:
+        ae[aename]["info"]["manufacture"]["fwver"]=VERSION
+        create.ci(aename, 'info', 'manufacture')
 	
 # every 0.9 sec
+print('repeat every 0.9 sec')
 RepeatedTimer(0.9, do_capture)
+for aename in ae:
+    cmeasure=ae[aename]['config']['cmeasure']
+    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
+        interval = cmeasure['stateperiod']
+    else:
+        interval = 60  #min
+    print(f"set stateperiod {cmeasure['stateperiod']} min") 
+    RepeatedTimer(interval*60, periodic_state.report)
+
+    if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
+        interval = cmeasure['measureperiod']
+    else:
+        interval = 10  #min
+    print(f"set measure interval {cmeasure['measureperiod']} min") 
+    RepeatedTimer(interval*60, do_measure_report)
+    
 Timer(10, init_resource).start()
+Timer(6, do_config, ['START']).start()
+Timer(15, periodic_state.report).start()
