@@ -13,8 +13,6 @@ import time
 from datetime import datetime
 import numpy as np
 
-measuring = True
-measureperiod = 10 # sec
 
 import conf
 host = conf.host
@@ -22,6 +20,17 @@ port = conf.port
 bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
+
+this_ae = ""
+
+# ae리스트에서 변위 센서의 ae이름을 가져온다
+for k in ae:
+    if "-DI_" in k:
+        this_ae = k
+        break
+
+cmeasure = ae[this_ae]["config"]["cmeasure"]
+measureperiod = cmeasure["measureperiod"] # 단위는 sec
 
 root=conf.root
 
@@ -83,7 +92,7 @@ def read(aename):
         print(url, json.dumps(r.json()))
 
 def tick():
-    read('ae.025742-DI_A1_01_X') # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함
+    read(this_ae) # 추후 conf.ae에서 ae name을 가져오는 방식으로 수정이 필요함
     threading.Timer(measureperiod, tick).start()
     
 time.sleep(measureperiod)

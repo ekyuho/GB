@@ -102,19 +102,45 @@ def Twos_Complement(data, length):
         return int_data
     
     
-# int basic_conversion(list number_list)
+# str basic_conversion(list number_list)
 # convert whole bit data to demical
-# it doesn't support two's complement.  
-#  
+# 특별한 연산 없이 bit data를 원래 순서대로 뒤집어둡니다. 
 def basic_conversion(number_list):
     result_str = ''
-    #for i in range(len(number_list)):
     for i in reversed(range(len(number_list))):
         result_hex = hex(number_list[i])[2:]
         if len(result_hex)<2:
             result_hex = '0'+result_hex
         result_str += result_hex
     return result_str
+
+# dict status_trigger_return(hex_data)
+# status bit를 분석하여 trigger가 발동된 센서가 있는지 표기합니다.
+# trigger가 발동되었다면 "1"을, 그렇지 않았다면 "0"을 저장하고 있습니다.
+def status_trigger_return(hex_data):
+    #print("hex data :", hex_data)
+    int_data = int(hex_data, 16)
+    #print("int_data :", int_data)
+    raw_bin_data = bin(int_data)
+    raw_bin_data = "0b"+"00000"+raw_bin_data[2:]
+    #print("raw_bin_data :", raw_bin_data)
+    bin_data = raw_bin_data[len(raw_bin_data)-8:len(raw_bin_data)-3] #trigger 여부를 나타내는 data 5칸을 표기
+    #print("bin_data :", bin_data)
+    tem_bit = bin_data[0]
+    dis_bit = bin_data[1]
+    str_bit = bin_data[2]
+    deg_bit = bin_data[3]
+    acc_bit = bin_data[4]
+
+    is_triggered = {
+        "Temperature":tem_bit,
+        "Displacement":dis_bit,
+        "Strain":str_bit,
+        "Degree":deg_bit,
+        "Acceleration":acc_bit
+    }
+
+    return is_triggered
 
 # int dis_conversion(list number_list)
 # convert whole displacement bit data to demical
@@ -230,6 +256,7 @@ def data_receiving():
         status = basic_conversion(rcv2[2:4]) #status info save
         timestamp = basic_conversion(rcv2[4:8]) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
         json_data["Timestamp"] = timestamp
+        #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
         json_data["Status"] = status
     else:
         isReady = False
@@ -260,12 +287,8 @@ def data_receiving():
         degreeZ = deg_conversion(rcv4[4:6]) + Offset['ti'] 
         Temperature = tem_conversion(rcv4[6:8]) + Offset['tp'] 
         Displacement_ch4 = dis_conversion(rcv4[8:12]) + Offset['di']
-        # 얘는 스트링 헥사코드를 리턴하는 넘이라, 스트링 변환전에 더해주어야 함 일단은 제거하고 넘어감
-        ###XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        #Displacement_ch5 = basic_conversion(rcv4[12:]) + Offset['di']
-        Displacement_ch5 = basic_conversion(rcv4[12:])
-        ###XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
+        # 식을 dis_conversion으로 변경하여 해결하였음
+        Displacement_ch5 = dis_conversion(rcv4[12:]) + Offset['di']
         json_data["Degree"] = {"x":degreeX, "y":degreeY, "z":degreeZ}
         json_data["Temperature"] = Temperature
         json_data["Displacement"] = {"ch4":Displacement_ch4, "ch5":Displacement_ch5}
