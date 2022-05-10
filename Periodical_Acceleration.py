@@ -21,7 +21,7 @@ port = conf.port
 bridge = conf.bridge
 cse = conf.cse
 ae = conf.ae
-samplerate = conf.samplerate_list["acc1"]
+#samplerate = conf.samplerate_list["acc1"]
 
 this_ae = ""
 
@@ -33,6 +33,7 @@ for k in ae:
 
 cmeasure = ae[this_ae]["config"]["cmeasure"]
 measureperiod = cmeasure["measureperiod"] # 단위는 sec
+samplerate = int(cmeasure["samplerate"])
 
 root=conf.root
 
