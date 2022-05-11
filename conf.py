@@ -15,14 +15,12 @@ config_ctrigger["AC"]={"use":"N","mode":1,"st1high":200,"st1low":"","st2high":""
 config_ctrigger["DI"]={"use":"N","mode":3,"st1high":60,"st1low":10,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
 config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
 config_ctrigger["TI"]={"use":"N","mode":1,"st1high":5,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
-config_ctrigger["EX"]={"use":"N","mode":1,"st1high":5,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
 
 config_cmeasure={}
 config_cmeasure['AC']={'sensitivity':20,'samplerate':"100",'usefft':'Y'}
 config_cmeasure['DI']={'sensitivity':24,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TP']={'sensitivity':16,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TI']={'sensitivity':20,'samplerate':"1",'usefft':'N'}
-config_cmeasure['EX']={'sensitivity':20,'samplerate':"1/600",'usefft':'N'}
 
 cmeasure2={'offset':0,'measureperiod':600,'stateperiod':60,'rawperiod':60,
     'st1min':2.1, 'st1max':2.6, 'st2min':3.01, 'st2max':4.01, 'st3min':5.01, 'st3max':6.01, 'st4min':7.01, 'st4max':8.01,
@@ -32,7 +30,6 @@ config_cmeasure['AC'].update(cmeasure2)  #deep copy
 config_cmeasure['DI'].update(cmeasure2)  #deep copy
 config_cmeasure['TP'].update(cmeasure2)  #deep copy
 config_cmeasure['TI'].update(cmeasure2)  #deep copy
-config_cmeasure['EX'].update(cmeasure2)  #deep copy
 
 
 info_manufacture={}
@@ -44,8 +41,6 @@ info_manufacture['TP']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':
     'sensortype':'CMOS','sensitivity':'12bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
 info_manufacture['TI']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2055','website':'http://www.ino-on.com','model':'mgi-1000',
     'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
-info_manufacture['EX']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2055','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
 
 
 info_imeasure={}
@@ -53,7 +48,6 @@ info_imeasure['AC']={'mode':'D','type':'AC','item':'가속도','range':'2G','pre
 info_imeasure['DI']={'mode':'S','type':'DI','item':'변위','range':'','precision':'1','accuracy':'3','meaunit':'ustrain','meaunit':'','direction':''}
 info_imeasure['TP']={'mode':'S','type':'TP','item':'온도','range':'-40~+120','precision':'0.01','accuracy':'0.01','meaunit':'C','meaunit':'','direction':''}
 info_imeasure['TI']={'mode':'S','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','meaunit':'','direction':''}
-info_imeasure['EX']={'mode':'S','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','meaunit':'','direction':''}
 
 data_dtrigger={"time":"","step":"","mode":"","sthigh":"","stlow":"","val":"","start":"","samplerate":"","count":"","data":""}
 data_fft={"start":"","end":"","st1hz":"","st2hz":"","st3hz":"","st4hz":"","st5hz":"","st6hz":"","st7hz":"","st8hz":"","st9hz":"","st10hz":""}
@@ -92,7 +86,7 @@ def make_ae(aename, install):
     ae[aename]['data']['dmeasure'].update(data_dmeasure)
     TOPIC_list[aename]=F'/{cse["name"]}/{aename}/realtime'
     ae[aename]['local']={}
-    if sensor_type in {'AC', 'DI', 'TI', 'EX'}:   # 얘만 mqtt default 로  가동
+    if sensor_type in {'AC', 'DI', 'TI', 'TP'}:   # 얘만 mqtt default 로  가동
         ae[aename]['local']['realstart']='Y'
         ae[aename]['local']['measurestart']='Y'
     else:
@@ -123,7 +117,7 @@ ctrl={'cmd':''}
 install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'S'}
 
 make_ae('ae.22223334-AC_SIM_01_X', install)
-#make_ae('ae.10000001-EX_A1M_X', install)
+#make_ae('ae.10000001-DI_A1M_X', install)
 #make_ae('ae.10000001-TP_A1M_X', install)
 #make_ae('ae.10000001-TI_A1M_X', install)
 
