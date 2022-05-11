@@ -6,9 +6,6 @@
 
 #   5/6 변위식 수정. 추후 인하대쪽 코드와 통합할 예정입니다, 주수아
 #   5/5 making robust를 위한 작업들, 김규호 
-
-VERSION="V1.1"
-
 import spidev
 import time
 import numpy as np
