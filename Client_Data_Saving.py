@@ -26,6 +26,9 @@ import shutil
 
 import periodic_state
 import periodic_acceleration
+import periodic_temperature
+import periodic_degree
+import periodic_displacement
 import create  #for Mobius resource
 import conf
 broker = conf.host
@@ -395,17 +398,18 @@ def do_capture():
         elif stype=='DI': jsonSave(dis_path, Displacement_json)
         elif stype=='AC': jsonSave(acc_path, Acceleration_json)
 
-    print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
+    #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
 
 def do_measure_report():
     global ae
-    for aename in ae:
-        if sensor_type(aename)=='AC':
-            periodic_acceleration.report()
+    for aename in ae: 
+        if sensor_type(aename)=='AC': periodic_acceleration.report()
+        elif sensor_type(aename)=='TP': periodic_temperature.report()
+        elif sensor_type(aename)=='DI': periodic_displacement.report()
+        elif sensor_type(aename)=='TI': periodic_degree.report()
         else:
-            print('not yet implmented')
-
+            print('PANIC: unsupported sensor type')
 
 if os.path.exists(f'{root}/newfile.txt'):
     os.remove(f'{root}/newfile.txt')

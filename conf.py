@@ -6,6 +6,9 @@ root='/home/pi/GB'
 # 아래 설정값은 최소 1회만 읽어가고 외부명령어로 값 설정이 있을 경우, 그 뒤부터는 'config.dat' 에 저장시켜두고 그것을 사용한다.
 # ctrl command 로 reset 을 실행하거나, config.dat 를 삭제하면 다시 아래값을 1회 읽어간다.
 
+#####################################################################
+
+supported_sensors = {'AC', 'DI', 'TP', 'TI'}
 
 #####################################################################
 #### 다음 섹션은 센서별 generic factory 초기설정값
@@ -61,7 +64,7 @@ def make_ae(aename, install):
     global config_ctrigger, config_time, config_cmeasure, config_connect, info_manufacture, info_imeasure, state, data_dtrigger, data_fft, data_dmeasure
     sensor_id= aename.split('-')[1]
     sensor_type = sensor_id[0:2]
-    if not sensor_type in {'AC', 'EX', 'DI', 'TP', 'TI'}:
+    if not sensor_type in supported_sensors:
         print('unknown sensor definition')
         return
 
@@ -116,8 +119,8 @@ ctrl={'cmd':''}
 
 install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'S'}
 
-make_ae('ae.22223334-AC_SIM_01_X', install)
-#make_ae('ae.10000001-DI_A1M_X', install)
+#make_ae('ae.22223334-TP_SIM_01_X', install)
+make_ae('ae.10000001-DI_A1M_X', install)
 #make_ae('ae.10000001-TP_A1M_X', install)
 #make_ae('ae.10000001-TI_A1M_X', install)
 
