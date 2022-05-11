@@ -315,13 +315,32 @@ def do_config(targetae):
         create.ci(aename, 'state','')
         return
 
-    print(f'got result {jsonData}')
+    print(f'do_config: got result {jsonData}')
     if targetae == "START":
         for aename in ae:
             create.ci(aename, 'state','')
+            set_periodic(aename)
     else:
         create.ci(targetae, 'state','')
+        set_periodic(targetae)
         save_conf()
+
+def set_periodic(aename):
+    global ae
+    cmeasure=ae[aename]['config']['cmeasure']
+    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
+        interval = cmeasure['stateperiod']
+    else:
+        interval = 60  #min
+    print(f"set stateperiod {cmeasure['stateperiod']} min")
+    RepeatedTimer(interval*60, periodic_state.report)
+
+    if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
+        interval = cmeasure['measureperiod']
+    else:
+        interval = 10  #min
+    print(f"set measure interval {cmeasure['measureperiod']} min")
+    RepeatedTimer(interval*60, do_measure_report)
 
 
 def do_capture():
@@ -421,21 +440,6 @@ if os.path.exists(f'{root}/newfile.txt'):
 # every 0.9 sec
 print('repeat every 0.9 sec')
 RepeatedTimer(0.9, do_capture)
-for aename in ae:
-    cmeasure=ae[aename]['config']['cmeasure']
-    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
-        interval = cmeasure['stateperiod']
-    else:
-        interval = 60  #min
-    print(f"set stateperiod {cmeasure['stateperiod']} min") 
-    RepeatedTimer(interval*60, periodic_state.report)
-
-    if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
-        interval = cmeasure['measureperiod']
-    else:
-        interval = 10  #min
-    print(f"set measure interval {cmeasure['measureperiod']} min") 
-    RepeatedTimer(interval*60, do_measure_report)
     
 Timer(10, init_resource).start()
 Timer(6, do_config, ['START']).start()

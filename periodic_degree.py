@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from datetime import datetime
+import create
 
 import conf
 host = conf.host
@@ -57,7 +58,7 @@ def read(aename):
         create.ci(aename, 'data', 'dmeasure')
 
 def report():
-    print('periodic_acceleration ')
+    print('periodic_degree ')
     for aename in ae:
         read(aename)
 

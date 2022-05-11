@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import datetime
 import numpy as np
+import create
 
 
 import conf
@@ -24,7 +25,7 @@ root=conf.root
 # string find_pathlist()
 # 통계의 대상이 될 파일 path를 return합니다.
 # 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
-def find_path():
+def find_path(cmeasure):
     path = F"{root}/raw_data/Displacement"
     file_list = os.listdir(path)
     present_time = time.time()
@@ -61,7 +62,7 @@ def read(aename):
         create.ci(aename, 'data', 'dmeasure')
 
 def report():
-    print('periodic_temperature')
+    print('periodic_displacement')
     for aename in ae:
         read(aename)
 

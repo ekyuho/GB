@@ -120,8 +120,8 @@ ctrl={'cmd':''}
 install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'S'}
 
 #make_ae('ae.22223334-TP_SIM_01_X', install)
-make_ae('ae.10000001-DI_A1M_X', install)
-#make_ae('ae.10000001-TP_A1M_X', install)
+#make_ae('ae.10000001-DI_A1M_X', install)
+make_ae('ae.10000001-TP_A1M_X', install)
 #make_ae('ae.10000001-TI_A1M_X', install)
 
 

@@ -13,7 +13,6 @@ import time
 from datetime import datetime
 import numpy as np
 import create
-from time import process_time
 
 import conf
 host = conf.host
@@ -27,9 +26,7 @@ root=conf.root
 # 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
 def find_path(cmeasure):
     path = F"{root}/raw_data/Temperature"
-    t1_start = process_time() 
     file_list = os.listdir(path)
-    t2_start = process_time() 
     present_time = time.time()
     min_value =  cmeasure["measureperiod"]*100
     min_index = 0
@@ -46,8 +43,6 @@ def find_path(cmeasure):
             if time_gap < min_value:
                 min_value = time_gap
                 min_index = i
-        print(f'len= {len(file_list)}  return {path+"/"+file_list[min_index]}')
-        print(f"do periodic elapsed os.listdir= {t2_start-t1_start:.1f} sec  filter_file= {process_time()-t2_start:.1f} sec") 
         return path+'/'+file_list[min_index]
 
 def read(aename):
