@@ -26,8 +26,8 @@ def versionup(url):
     # tar cbf package20020512.tar a.py b.py...
     # openssl aes-256-cbc -pbkdf2 -in package20020512.tar -out 20200512.BIN
     # rcp 20200512.BIN ubuntu@damoa.io:Web/public/update
-    print(f"openssl aes-256-cbc -pbkdf2 -d -in {bfile} -out {file} -pass pass:dlshdhschlrh")
-    os.system(f"openssl aes-256-cbc -pbkdf2 -d -in {bfile} -out {file} -pass pass:dlshdhschlrh")
+    print(f"openssl aes-256-cbc -pbkdf2 -d -in {bfile} -out {file} -pass pass:PASSWORD")
+    os.system(f"openssl aes-256-cbc -pbkdf2 -d -in {bfile} -out {file} -pass pass:PASSWORD")
     os.system(f"tar xf {file}")
     files=os.listdir('.')
     
