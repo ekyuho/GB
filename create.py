@@ -6,6 +6,7 @@ from encodings import utf_8
 import requests
 import json
 import sys
+import os
 from datetime import datetime
 
 import conf
@@ -46,12 +47,14 @@ def ci(aename, cnt, subcnt):
         print(f'got error {r.json}')
     else:
         print(f'created {url}/{r.json()["m2m:cin"]["rn"]}', json.dumps(r.json())[:100])
-        global slack
-        if slack=="":
-            with open("slackkey.txt") as f: slack=f.read()
-        url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel={slack}'
-        print(url2)
-        r = requests.get(url2)
+        if os.path.exists('slackkey.txt'):
+            global slack
+            if slack=="":
+                with open("slackkey.txt") as f: slack=f.read()
+                print('activate slack alarm')
+            url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel={slack}'
+            print(url2)
+            r = requests.get(url2)
 
 # (ae.323376-TP_A1_01_X, {'info','config'})
 def allci(aei, all):
