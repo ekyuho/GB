@@ -45,6 +45,8 @@ def ci(aename, cnt, subcnt):
         print(f'got error {r.json}')
     else:
         print(f'created {url}/{r.json()["m2m:cin"]["rn"]}', json.dumps(r.json())[:100])
+        url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel=https://hooks.slack.com/services/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'
+        r = requests.get(url2)
 
 # (ae.323376-TP_A1_01_X, {'info','config'})
 def allci(aei, all):
