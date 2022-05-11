@@ -110,12 +110,13 @@ def read(aename):
     else:
     
         data_list = np.array(data_list)
-        dmeasure = ae[aename]['data']['dmeasure']
+        dmeasure = {}
         dmeasure['min'] = np.min(data_list)
         dmeasure['max']= np.max(data_list)
         dmeasure['avg'] = np.average(data_list)
         dmeasure['std'] = np.std(data_list)
         dmeasure['rms'] = np.sqrt(np.mean(data_list**2))
+        ae[aename]['data']['dmeasure'] = dmeasure
     
         create.ci(aename, 'data', 'dmeasure')
         
