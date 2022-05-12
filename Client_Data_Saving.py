@@ -4,6 +4,8 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
+VERSION='1.0'
+print(f'Verion {VERSION}')
 
 from encodings import utf_8
 import threading
@@ -21,9 +23,8 @@ from datetime import datetime
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
-import zipfile
-import shutil
 
+import versionup
 import periodic_state
 import periodic_acceleration
 import periodic_temperature
@@ -87,21 +88,6 @@ def jsonSave(path, jsonFile):
     with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
         json.dump(jsonFile, f, indent=4)
 
-'''
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"reqstate"}'
-
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setconnect","connect":{"cseip":"218.232.234.234","cseport":7579,"csename":"cse-gnrb-mon","cseid":"cse-gnrb-mon","mqttip":"218.232.234.234","mqttport":1883,"uploadip":"218.232.234.234","uploadport":80}}'
-
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"settrigger","ctrigger":{"use":"Y","mode":1,"st1high":200,"bfsec":0.015,"afsec":120}}'
-
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"settime","time":{"zone":"GMT+9","mode":3,"ip":"time.nist.gov","port":80,"period":600}}'
-
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"setmeasure","cmeasure":{"sensitivity":20,"samplerate":100,"usefft":"Y"}'
-
-python3 actuate.py ae.544449-AC_A1_01_X '{"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/teros.V2.23.bin"}'
-
-'''
-
 def save_conf():
     with open(F"{root}/config.dat","w") as f:
         f.write(json.dumps(ae, ensure_ascii=False,indent=4))
@@ -125,21 +111,7 @@ def do_user_command(aename, jcmd):
         print('nothing to sync time')
     elif cmd in {'fwupdate'}:
         url= f'{jcmd["protocol"]}://{jcmd["ip"]}:{jcmd["port"]}{jcmd["path"]}'
-        print(f'fwupdate url={url}')
-        r = requests.get(url)
-        if not r.status_code == 200:
-            print(f'got {r.code}')
-            return
-        print(f'downloaded {len(r.text)} bytes')
-        
-        if not os.path.exists(F"{root}/fwupdate"): os.makedirs(F"{root}/fwupdate")
-        fname = datetime.now().strftime(f'{root}/fwupdate/%Y%m%d_%H%M%S')
-        with open(fname, "w") as f: f.write(r.text)
-        print(f'created {fname} {os.ath.getsize(f"{root}/fwupdate/%Y%m%d_%H%M%S")} bytes')
-        shutil.copyfile(fname, f'{root}/Server_Data_Sending.py')
-        print(f'done deploy')
-        with open(f'{root}/newfile.txt', "w") as f: f.write(r.text)
-        os.system("sudo reboot")
+        versionup.versionup(url)
     elif cmd in {'realstart'}:
         print('start mqtt real tx')
         mqtt_realtime=True
@@ -411,12 +383,13 @@ def do_measure_report():
         else:
             print('PANIC: unsupported sensor type')
 
-if os.path.exists(f'{root}/newfile.txt'):
-    os.remove(f'{root}/newfile.txt')
-    print('found firmware update. create ci for firmware verison update')
-    for aename in ae:
+gotnewfile=False
+for aename in ae:
+    if not ae[aename]["info"]["manufacture"]["fwver"] == VERSION:
         ae[aename]["info"]["manufacture"]["fwver"]=VERSION
-        create.ci(aename, 'info', 'manufacture')
+        gotnewfile=True
+if gotnewfile:
+    save_conf()
 	
 # every 0.9 sec
 print('repeat every 0.9 sec')
