@@ -36,7 +36,7 @@ CMD_B = [0x20]*6
 
 def request_cmd() :
     RXD = spi.xfer2(rq_cmd)
-    print(RXD)
+    print(f'RXD= {RXD}')
     if   RXD == [0x2, 0x3, 0x4, 0x5, 0x6, 0x7] : # ACK
         return 1
     else : 
@@ -44,7 +44,7 @@ def request_cmd() :
 
 def send_data(cmd) : 
     RXD = spi.xfer3(cmd)
-    print(RXD)
+    print(f'RXD= {RXD}')
     return RXD
 
 def time_conversion(stamp):
@@ -115,7 +115,7 @@ def status_trigger_return(hex_data):
     int_data = int(hex_data[:2], 16)
     #print("int_data :", int_data)
     bin_data = bin(int_data)[2:]
-    print(bin_data)
+    #print(f'bin_data= {bin_data}')
     if len(bin_data) < 5:
         gap = 5-len(bin_data)
         for i in range(gap):
@@ -128,11 +128,11 @@ def status_trigger_return(hex_data):
     acc_bit = bin_data[4]
 
     is_triggered = {
-        "Temperature":tem_bit,
-        "Displacement":dis_bit,
+        "TP":tem_bit,
+        "DI":dis_bit,
         "Strain":str_bit,
-        "Degree":deg_bit,
-        "Acceleration":acc_bit
+        "TI":deg_bit,
+        "AC":acc_bit
     }
 
     return is_triggered
@@ -251,8 +251,8 @@ def data_receiving():
         status = basic_conversion(rcv2[2:4]) #status info save
         timestamp = time_conversion(int(basic_conversion(rcv2[4:8]),16)) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
         json_data["Timestamp"] = timestamp
-        print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
-        json_data["Status"] = status
+        #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
+        json_data["trigger"] = status_trigger_return(status)
     else:
         isReady = False
         console_msg += " ** device not ready"
@@ -313,8 +313,7 @@ def data_receiving():
         json_data["Acceleration"] = acc_list
         json_data["Strain"] = strain_list
         time.sleep(d2)
-        j=json.dumps(json_data, ensure_ascii=False)
-        console_msg += F" {len(j)}B {j[0:60]} ..."
+        console_msg += F" trigger= {json_data['trigger']}"
         return json_data
 
 def set_config_data(config_data):
@@ -437,27 +436,8 @@ def do_command(command, param):
     elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
+        data["Status"] = 'Ok'
         sending_data = json.dumps(data, ensure_ascii=False) 
-        '''
-        f = open('capture.txt', 'r')
-        for header in capture_HEADER:
-            tmp = f.readline().rstrip()
-            if tmp.isdigit():
-                data[header] = int(tmp)
-            else:
-                data[header] = tmp
-
-        tmp_string = ""
-        for xyz in range(3):
-            tmp_string += f.readline().rstrip()
-        data["ac"] = tmp_string
-        tmp_string = ""
-        for xyz in range(3):
-            tmp_string += f.readline().rstrip()
-        data["ds"] = tmp_string
-                
-        sending_data = json.dumps(data, ensure_ascii=False)
-        '''
 
     elif command=="STATUS":
         d=get_status_data()

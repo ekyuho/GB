@@ -19,7 +19,7 @@ import os
 import sys
 import time
 from time import process_time
-from datetime import datetime
+from datetime import datetime, timedelta
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
@@ -33,6 +33,9 @@ import periodic_displacement
 import create  #for Mobius resource
 import conf
 
+import make_oneM2M_resource
+make_oneM2M_resource.makeit()
+
 import File_Merge
 import File_Cleaner
 
@@ -44,12 +47,14 @@ ae = conf.ae
 root=conf.root
 worktodo=""
 worktodo_param1=""
+worktodo_param2=""
 
 TOPIC_callback=f'/oneM2M/req/{cse["name"]}/#'
 TOPIC_response=f'/oneM2M/resp/{cse["name"]}'
 TOPIC_list = conf.TOPIC_list
 mqttc=""
 command=""
+trigger_in_progress={}
 
 # 다중 데이터의 경우, 어떤 data를 저장할지 결정해야한다
 acc_axis = "x" # x, y, z중 택1
@@ -99,7 +104,7 @@ def save_conf():
 
 def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
-    global ae, worktodo, worktodo_param1
+    global ae, worktodo, worktodo_param1, worktodo_param2
     cmd=jcmd['cmd']
     if 'reset' in cmd:
         file=f"{root}/config.dat"
@@ -124,7 +129,7 @@ def do_user_command(aename, jcmd):
         mqtt_realtime=False
     elif cmd in {'reqstate'}:
         print("create status ci")
-        periodic_state.ci(aename, 'state')
+        periodic_state.report()
     elif cmd in {'settrigger','setmeasure'}:
         if cmd=='settrigger':
             print(f'set ctrigger= {jcmd["ctrigger"]}')
@@ -135,6 +140,7 @@ def do_user_command(aename, jcmd):
         #do_config(aename)
         worktodo = do_config
         worktodo_param1 = aename
+        worktodo_param2 = 'save'
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
         ae[aename]["config"]["time"]= jcmd["time"]
@@ -247,17 +253,10 @@ client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(('127.0.0.1', 50000))
 print("socket 연결에 성공했습니다.")
 
-# create initial resources for Mobius
-def init_resource():
-    print("Create init resource:")
-    for x in list(ae.keys()):
-        print(f" for {x}")
-        create.allci(x, {'ctrigger', 'time', 'cmeasure', 'connect', 'info','install','imeasure'})
-
 
 time_old=datetime.now()
 
-def do_config(targetae):
+def do_config(targetae, savefile):
     global client_socket
     global ae
 
@@ -274,8 +273,8 @@ def do_config(targetae):
             setting[sensor_type(aename)]['use'] = ctrigger['use']
             if 'st1high' in ctrigger and str(ctrigger['st1high']).isnumeric(): setting[sensor_type(aename)]['st1high']= int(ctrigger['st1high'])
             if 'st1low' in ctrigger and str(ctrigger['st1low']).isnumeric(): setting[sensor_type(aename)]['st1low']= int(ctrigger['st1low'])
-            
-        
+
+    print(f"do_config seting= {setting}")
 
     client_socket.sendall(("CONFIG"+json.dumps(setting, ensure_ascii=False)).encode())
 
@@ -290,13 +289,24 @@ def do_config(targetae):
         create.ci(aename, 'state','')
         return
 
-    print(f'got result {jsonData}')
-    if targetae == "START":
-        for aename in ae:
-            create.ci(aename, 'state','')
-    else:
-        create.ci(targetae, 'state','')
+    print(f'do_config: got result {jsonData}')
+    create.ci(targetae, 'state','')
+    if savefile=='save':
         save_conf()
+
+def do_trigger_followup(aename):
+    global ae
+    print(f'trigger_followup {aename}')
+    trigger_in_progress[aename]='0'
+    dtrigger=ae[aename]['data']['dtrigger']
+
+    #아래의  function을 만들어야 합니다
+    #data= merge_data(dtrigger['start'])
+    data=[1,2,3,4,5]
+
+    dtrigger['count']=len(data)
+    dtrigger['data']=json.dumps(data)
+    create.ci(aename, 'data', 'dtrigger')
 
 
 def do_capture():
@@ -306,7 +316,7 @@ def do_capture():
 
     if not worktodo=="":
         print('call work to do')
-        worktodo(worktodo_param1)
+        worktodo(worktodo_param1, worktodo_param2)
         worktodo=""
         return
 
@@ -324,6 +334,34 @@ def do_capture():
         time_old=now
         return
     
+    #print('got=',jsonData)
+    j=jsonData
+    for aename in ae:
+        if j['trigger'][sensor_type(aename)]=='1':
+            if aename in trigger_in_progress and trigger_in_progress[aename]=='1':
+                continue
+
+            trigger_in_progress[aename]='1'
+            ctrigger=ae[aename]['config']['ctrigger']
+            cmeasure=ae[aename]['config']['cmeasure']
+            dtrigger=ae[aename]['data']['dtrigger']
+            dtrigger['time']=now.strftime("%Y-%m-%d %H:%M:%S.%f")
+            dtrigger['start']=(now-timedelta(seconds=ctrigger['bfsec'])).strftime("%Y-%m-%d %H:%M:%S.%f")
+            dtrigger['mode']=ctrigger['mode']
+            dtrigger['sthigh']=ctrigger['st1high']
+            dtrigger['stlow']=ctrigger['st1low']
+            dtrigger['samplerate']=cmeasure['samplerate']
+            dtrigger['val']=1
+
+            print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+            if int(ctrigger['afsec']) and ctrigger['afsec']>0:
+                Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start()
+                print(f"set trigger followup in {ctrigger['afsec']} sec")
+            else:
+                print(f"invalid afsec= {ctrigger['afsec']}")
+
+
+
     time_old=now
     Time_data = jsonData["Timestamp"]
     Temperature_data = jsonData["Temperature"]
@@ -393,7 +431,6 @@ def do_capture():
     # 내 ae에 지정된 sensor type정보만을 저장
     for aename in ae:
         stype = sensor_type(aename)
-        stype = aename.split('-')[1][0:2]  # 'ae.10000001-AC_SIM_01_X'  이런거에서 'AC' 같은것만 추출
         if stype=='TI': jsonSave(deg_path, Degree_json)
         elif stype=='TP': jsonSave(tem_path, Temperature_json)
         elif stype=='DI': jsonSave(dis_path, Displacement_json)
@@ -414,42 +451,46 @@ def do_measure_report():
 gotnewfile=False
 for aename in ae:
     if not ae[aename]["info"]["manufacture"]["fwver"] == VERSION:
+        print(f'fwver {ae[aename]["info"]["manufacture"]["fwver"]} != {VERSION}  create save file.')
         ae[aename]["info"]["manufacture"]["fwver"]=VERSION
         gotnewfile=True
 if gotnewfile:
     save_conf()
 	
-# every 0.9 sec
-print('repeat every 0.9 sec')
-RepeatedTimer(0.9, do_capture)
 for aename in ae:
     cmeasure=ae[aename]['config']['cmeasure']
     if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
         interval = cmeasure['stateperiod']
     else:
         interval = 60  #min
-    print(f"set stateperiod {cmeasure['stateperiod']} min") 
     RepeatedTimer(interval*60, periodic_state.report)
 
     if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
         interval = cmeasure['measureperiod']
     else:
-        interval = 10  #min
-    print(f"set measure interval {cmeasure['measureperiod']} sec") 
-    RepeatedTimer(interval*60, do_measure_report)
+        interval = 600  #sec
+    RepeatedTimer(interval, do_measure_report)
 
     if 'rawperiod' in cmeasure and str(cmeasure['rawperiod']).isnumeric():
         interval = cmeasure['rawperiod']
     else:
         interval = 60  #min
-    print(f"set raw data interval {cmeasure['rawperiod']} min") 
+    print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
+    print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min") 
+    print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min") 
+    print(f"cmeasure.usefft= {cmeasure['usefft']}") 
+    print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
     # rawperiod의 간격마다 raw file 통합 실시
     # 아직 실제 raw file 전송은 수행하고 있지 않음
     # for test, rawperiod is 10 seconds
     RepeatedTimer(interval*60, File_Merge.doit)
     RepeatedTimer(interval*60, File_Cleaner.doit)
 
+    print('create ci at boot')
+    create.allci(aename, {'config','info'})
+    print('Ready')
+    do_config(aename, 'nosave')
 
-Timer(10, init_resource).start()
-Timer(6, do_config, ['START']).start()
-Timer(15, periodic_state.report).start()
+
+# every 1.0 sec
+RepeatedTimer(1.0, do_capture)

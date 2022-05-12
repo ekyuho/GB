@@ -41,6 +41,5 @@ def report():
         update(aei)
         create.ci(aei, cnti,'')
 
-
 if __name__ == "__main__":
-    tick()
+    report()

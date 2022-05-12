@@ -46,22 +46,23 @@ def ci(aename, cnt, subcnt):
     if "m2m:dbg" in r.json():
         print(f'got error {r.json}')
     else:
-        print(f'created {url}/{r.json()["m2m:cin"]["rn"]}', json.dumps(r.json())[:100])
+        print(f'created {url}/{r.json()["m2m:cin"]["rn"]}\n{r.json()["m2m:cin"]["con"]}')
         if os.path.exists('slackkey.txt'):
             global slack
             if slack=="":
                 with open("slackkey.txt") as f: slack=f.read()
                 print('activate slack alarm')
             url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel={slack}'
-            print(url2)
+            #print(url2)
             r = requests.get(url2)
 
 # (ae.323376-TP_A1_01_X, {'info','config'})
 def allci(aei, all):
+    print(f'create ci for containers= {all}')
     for cnti in ae[aei]:
         for subcnti in ae[aei][cnti]:
             if cnti in all:
-                #print(f'{aei}/{cnti}/{subcnti}')
+                print(f'{aei}/{cnti}/{subcnti}')
                 ci(aei, cnti, subcnti)
 
 if __name__== "__main__":

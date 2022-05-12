@@ -14,10 +14,12 @@ supported_sensors = {'AC', 'DI', 'TP', 'TI'}
 #### 다음 섹션은 센서별 generic factory 초기설정값
 #####################################################################
 config_ctrigger={}
-config_ctrigger["AC"]={"use":"N","mode":1,"st1high":200,"st1low":"","st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
-config_ctrigger["DI"]={"use":"N","mode":3,"st1high":60,"st1low":10,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
-config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
-config_ctrigger["TI"]={"use":"N","mode":1,"st1high":5,"st1low":-20,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":"","afsec":""}
+config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
+config_ctrigger["DI"]={"use":"Y","mode":3,"st1high":60,"st1low":10,"bfsec":0,"afsec":1}
+config_ctrigger["TP"]={"use":"Y","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
+config_ctrigger["TI"]={"use":"Y","mode":3,"st1high":5,"st1low":-20,"bfsec":0,"afsec":1}
+# saved for copy just in case
+#{"use":"Y","mode":1,"st1high":200,"st1low":-2000,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
 
 config_cmeasure={}
 config_cmeasure['AC']={'sensitivity':20,'samplerate':"100",'usefft':'Y'}
@@ -37,13 +39,13 @@ config_cmeasure['TI'].update(cmeasure2)  #deep copy
 
 info_manufacture={}
 info_manufacture['AC']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'MEMS','sensitivity':'20bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
+    'sensortype':'MEMS','sensitivity':'20bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
 info_manufacture['DI']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2053','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'Wire-strain','sensitivity':'24bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
+    'sensortype':'Wire-strain','sensitivity':'24bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
 info_manufacture['TP']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2054','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'CMOS','sensitivity':'12bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
+    'sensortype':'CMOS','sensitivity':'12bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
 info_manufacture['TI']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2055','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'v1.0','hwver':'v1.0','hwtype':'D','mac':''}
+    'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
 
 
 info_imeasure={}
@@ -119,9 +121,10 @@ ctrl={'cmd':''}
 
 install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'S'}
 
+make_ae('ae.22223340-AC_SIM_01_X', install)
 #make_ae('ae.22223334-TP_SIM_01_X', install)
 #make_ae('ae.10000001-DI_A1M_X', install)
-make_ae('ae.10000001-TP_A1M_X', install)
+#make_ae('ae.10000001-TP_A1M_X', install)
 #make_ae('ae.10000001-TI_A1M_X', install)
 
 
