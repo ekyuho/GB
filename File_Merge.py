@@ -21,6 +21,11 @@ import conf
 ae = conf.ae
 root = conf.root
 
+connect = conf.config_connect
+
+host = connect["uploadip"]
+port = 2883 # 통일성을 위해 추후 port = connect["uploadport"]로 바꿔야할듯합니다만, uploadport의 기본값이 건기연 서버의 포트와 달라(80) 임시로 상수를 입력해두었습니다.
+
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
 
@@ -105,6 +110,12 @@ def file_save(aename, rawperiod):
     file_name = aename+now.strftime("-%Y%m%d%H%M")
     with open (F"{save_path}/inoon-{file_name}", "w") as f:
         json.dump(merged_file, f, indent=4)
+
+    url = F"http://{host}:{port}/upload"
+
+    r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/inoon-{file_name}", "rb")})
+    print("raw data upload trying...")
+    print(r.text)
         
 def doit():
     for aename in ae:

@@ -34,6 +34,7 @@ import create  #for Mobius resource
 import conf
 
 import File_Merge
+import File_Cleaner
 
 broker = conf.host
 port = conf.port
@@ -94,7 +95,7 @@ def jsonSave(path, jsonFile):
 def save_conf():
     with open(F"{root}/config.dat","w") as f:
         f.write(json.dumps(ae, ensure_ascii=False,indent=4))
-    print(f"wrote confg.dat")
+    print(f"wrote config.dat")
 
 def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
@@ -158,7 +159,6 @@ def do_user_command(aename, jcmd):
         return
     print(j)
 '''
-
 
 
 def got_callback(topic, msg):
@@ -401,7 +401,6 @@ def do_capture():
 
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
-
 def do_measure_report():
     global ae
     for aename in ae: 
@@ -436,7 +435,7 @@ for aename in ae:
         interval = cmeasure['measureperiod']
     else:
         interval = 10  #min
-    print(f"set measure interval {cmeasure['measureperiod']} min") 
+    print(f"set measure interval {cmeasure['measureperiod']} sec") 
     RepeatedTimer(interval*60, do_measure_report)
 
     if 'rawperiod' in cmeasure and str(cmeasure['rawperiod']).isnumeric():
@@ -447,9 +446,10 @@ for aename in ae:
     # rawperiod의 간격마다 raw file 통합 실시
     # 아직 실제 raw file 전송은 수행하고 있지 않음
     # for test, rawperiod is 10 seconds
-    RepeatedTimer(interval*60, File_Merge.doit) 
+    RepeatedTimer(interval*60, File_Merge.doit)
+    RepeatedTimer(interval*60, File_Cleaner.doit)
 
-    
+
 Timer(10, init_resource).start()
 Timer(6, do_config, ['START']).start()
 Timer(15, periodic_state.report).start()

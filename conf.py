@@ -91,8 +91,7 @@ def make_ae(aename, install):
     ae[aename]['local']={}
     if sensor_type in {'AC', 'DI', 'TI', 'TP'}:   # 얘만 mqtt default 로  가동
         ae[aename]['local']['realstart']='Y'
-        ae[aename]['local']['measurestart']='Y'
-        ae[aename]['local']['last_timestamp']=0
+        ae[aename]['local']['measurestart'] ='Y' 
     else:
         ae[aename]['local']['realstart']='N'
         ae[aename]['local']['measurestart']='N'
