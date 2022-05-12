@@ -32,6 +32,10 @@ import periodic_degree
 import periodic_displacement
 import create  #for Mobius resource
 import conf
+
+import File_Merge
+import File_Cleaner
+
 broker = conf.host
 port = conf.port
 cse = conf.cse
@@ -91,7 +95,7 @@ def jsonSave(path, jsonFile):
 def save_conf():
     with open(F"{root}/config.dat","w") as f:
         f.write(json.dumps(ae, ensure_ascii=False,indent=4))
-    print(f"wrote confg.dat")
+    print(f"wrote config.dat")
 
 def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
@@ -120,7 +124,7 @@ def do_user_command(aename, jcmd):
         mqtt_realtime=False
     elif cmd in {'reqstate'}:
         print("create status ci")
-        Periodical_status.ci(aename, 'state')
+        periodic_state.ci(aename, 'state')
     elif cmd in {'settrigger','setmeasure'}:
         if cmd=='settrigger':
             print(f'set ctrigger= {jcmd["ctrigger"]}')
@@ -157,7 +161,6 @@ def do_user_command(aename, jcmd):
 '''
 
 
-
 def got_callback(topic, msg):
     global mqttc
     aename=topic[4] 
@@ -173,13 +176,13 @@ def got_callback(topic, msg):
         do_user_command(aename, jcmd)
 
         resp_topic=f'{TOPIC_response}/{aename}/json'
-        r = {};
-        r['m2m:rsp'] = {};
+        r = {}
+        r['m2m:rsp'] = {}
         r['m2m:rsp']["rsc"] = 2001
         r['m2m:rsp']["to"] = ''
         r['m2m:rsp']["fr"] = aename
         r['m2m:rsp']["rqi"] = j["rqi"]
-        r['m2m:rsp']["pc"] = '';
+        r['m2m:rsp']["pc"] = ''
         mqttc.publish(resp_topic, json.dumps(r, ensure_ascii=False))
         print(f'response {resp_topic} {j["rqi"]}')
 
@@ -287,37 +290,19 @@ def do_config(targetae):
         create.ci(aename, 'state','')
         return
 
-    print(f'do_config: got result {jsonData}')
+    print(f'got result {jsonData}')
     if targetae == "START":
         for aename in ae:
             create.ci(aename, 'state','')
-            set_periodic(aename)
     else:
         create.ci(targetae, 'state','')
-        set_periodic(targetae)
         save_conf()
-
-def set_periodic(aename):
-    global ae
-    cmeasure=ae[aename]['config']['cmeasure']
-    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
-        interval = cmeasure['stateperiod']
-    else:
-        interval = 60  #min
-    print(f"set stateperiod {cmeasure['stateperiod']} min")
-    RepeatedTimer(interval*60, periodic_state.report)
-
-    if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
-        interval = cmeasure['measureperiod']
-    else:
-        interval = 10  #min
-    print(f"set measure interval {cmeasure['measureperiod']} min")
-    RepeatedTimer(interval*60, do_measure_report)
 
 
 def do_capture():
     global client_socket, mqtt_measure, time_old
     global worktodo, worktodo_param1
+    global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
 
     if not worktodo=="":
         print('call work to do')
@@ -351,7 +336,32 @@ def do_capture():
         acc_list.append(jsonData["Acceleration"][i][acc_axis])
     for i in range(len(jsonData["Strain"])):
         str_list.append(jsonData["Strain"][i][str_axis])
-    
+
+    #samplerate에 따라 파일에 저장되는 data 조정
+    #현재 가속도 센서에만 적용중
+    for aename in ae:
+        ae_samplerate = int(ae[aename]["config"]["cmeasure"]["samplerate"])
+        # acceleration의 경우, samplerate가 100이 아닌 경우에 대처한다
+        if sensor_type(aename)=="AC" and ae_samplerate != 100:
+            if 100%ae_samplerate != 0 : #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
+                print("wrong samplerate config")
+                print("apply standard samplerate = 100")
+                ae_samplerate = 100
+            new_acc_list = list()
+            merged_value = 0
+            merge_count = 0
+            sample_number = 100//ae_samplerate
+            for i in range(len(acc_list)):
+                merged_value += acc_list[i]
+                merge_count += 1
+                if merge_count == sample_number:
+                    new_acc_list.append(round(merged_value/sample_number, 2))
+                    merge_count = 0
+            acc_list = new_acc_list
+            #print("samplerate calculation end")
+            #print(acc_list)
+        
+
     Acceleration_data = acc_list
     Strain_data = str_list
     Degree_data = jsonData["Degree"][deg_axis]
@@ -391,7 +401,6 @@ def do_capture():
 
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
-
 def do_measure_report():
     global ae
     for aename in ae: 
@@ -413,7 +422,34 @@ if gotnewfile:
 # every 0.9 sec
 print('repeat every 0.9 sec')
 RepeatedTimer(0.9, do_capture)
-    
+for aename in ae:
+    cmeasure=ae[aename]['config']['cmeasure']
+    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
+        interval = cmeasure['stateperiod']
+    else:
+        interval = 60  #min
+    print(f"set stateperiod {cmeasure['stateperiod']} min") 
+    RepeatedTimer(interval*60, periodic_state.report)
+
+    if 'measureperiod' in cmeasure and str(cmeasure['measureperiod']).isnumeric():
+        interval = cmeasure['measureperiod']
+    else:
+        interval = 10  #min
+    print(f"set measure interval {cmeasure['measureperiod']} sec") 
+    RepeatedTimer(interval*60, do_measure_report)
+
+    if 'rawperiod' in cmeasure and str(cmeasure['rawperiod']).isnumeric():
+        interval = cmeasure['rawperiod']
+    else:
+        interval = 60  #min
+    print(f"set raw data interval {cmeasure['rawperiod']} min") 
+    # rawperiod의 간격마다 raw file 통합 실시
+    # 아직 실제 raw file 전송은 수행하고 있지 않음
+    # for test, rawperiod is 10 seconds
+    RepeatedTimer(interval*60, File_Merge.doit)
+    RepeatedTimer(interval*60, File_Cleaner.doit)
+
+
 Timer(10, init_resource).start()
 Timer(6, do_config, ['START']).start()
 Timer(15, periodic_state.report).start()

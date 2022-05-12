@@ -65,7 +65,6 @@ def find_pathlist():
 def transport():
     global host
     global port
-    global last_timestamp
     path_list = find_pathlist()
 
     # 전송의 대상이 되는 파일이 전혀 없었을 경우, 전송을 수행하지 않습니다.
