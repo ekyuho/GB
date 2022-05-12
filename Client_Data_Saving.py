@@ -32,6 +32,9 @@ import periodic_degree
 import periodic_displacement
 import create  #for Mobius resource
 import conf
+
+import File_Merge
+
 broker = conf.host
 port = conf.port
 cse = conf.cse
@@ -299,6 +302,7 @@ def do_config(targetae):
 def do_capture():
     global client_socket, mqtt_measure, time_old
     global worktodo, worktodo_param1
+    global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
 
     if not worktodo=="":
         print('call work to do')
@@ -332,7 +336,32 @@ def do_capture():
         acc_list.append(jsonData["Acceleration"][i][acc_axis])
     for i in range(len(jsonData["Strain"])):
         str_list.append(jsonData["Strain"][i][str_axis])
-    
+
+    #samplerate에 따라 파일에 저장되는 data 조정
+    #현재 가속도 센서에만 적용중
+    for aename in ae:
+        ae_samplerate = int(ae[aename]["config"]["cmeasure"]["samplerate"])
+        # acceleration의 경우, samplerate가 100이 아닌 경우에 대처한다
+        if sensor_type(aename)=="AC" and ae_samplerate != 100:
+            if 100%ae_samplerate != 0 : #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
+                print("wrong samplerate config")
+                print("apply standard samplerate = 100")
+                ae_samplerate = 100
+            new_acc_list = list()
+            merged_value = 0
+            merge_count = 0
+            sample_number = 100//ae_samplerate
+            for i in range(len(acc_list)):
+                merged_value += acc_list[i]
+                merge_count += 1
+                if merge_count == sample_number:
+                    new_acc_list.append(round(merged_value/sample_number, 2))
+                    merge_count = 0
+            acc_list = new_acc_list
+            #print("samplerate calculation end")
+            #print(acc_list)
+        
+
     Acceleration_data = acc_list
     Strain_data = str_list
     Degree_data = jsonData["Degree"][deg_axis]
@@ -409,6 +438,17 @@ for aename in ae:
         interval = 10  #min
     print(f"set measure interval {cmeasure['measureperiod']} min") 
     RepeatedTimer(interval*60, do_measure_report)
+
+    if 'rawperiod' in cmeasure and str(cmeasure['rawperiod']).isnumeric():
+        interval = cmeasure['rawperiod']
+    else:
+        interval = 60  #min
+    print(f"set raw data interval {cmeasure['rawperiod']} min") 
+    # rawperiod의 간격마다 raw file 통합 실시
+    # 아직 실제 raw file 전송은 수행하고 있지 않음
+    # for test, rawperiod is 10 seconds
+    RepeatedTimer(interval*60, File_Merge.doit) 
+
     
 Timer(10, init_resource).start()
 Timer(6, do_config, ['START']).start()

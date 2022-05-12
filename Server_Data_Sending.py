@@ -109,15 +109,17 @@ def basic_conversion(number_list):
 
 # dict status_trigger_return(hex_data)
 # status bit를 분석하여 trigger가 발동된 센서가 있는지 표기합니다.
-# trigger가 발동되었다면 "1"을, 그렇지 않았다면 "0"을 저장하고 있습니다.
+# trigger가 발동되었다면 1을, 그렇지 않았다면 0을 저장하고 있습니다.
 def status_trigger_return(hex_data):
     #print("hex data :", hex_data)
-    int_data = int(hex_data, 16)
+    int_data = int(hex_data[:2], 16)
     #print("int_data :", int_data)
-    raw_bin_data = bin(int_data)
-    raw_bin_data = "0b"+"00000"+raw_bin_data[2:]
-    #print("raw_bin_data :", raw_bin_data)
-    bin_data = raw_bin_data[len(raw_bin_data)-8:len(raw_bin_data)-3] #trigger 여부를 나타내는 data 5칸을 표기
+    bin_data = bin(int_data)[2:]
+    print(bin_data)
+    if len(bin_data) < 5:
+        gap = 5-len(bin_data)
+        for i in range(gap):
+            bin_data = "0"+bin_data
     #print("bin_data :", bin_data)
     tem_bit = bin_data[0]
     dis_bit = bin_data[1]
@@ -247,9 +249,9 @@ def data_receiving():
         json_data = {}
         #print("data is ready")
         status = basic_conversion(rcv2[2:4]) #status info save
-        timestamp = basic_conversion(rcv2[4:8]) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
+        timestamp = time_conversion(int(basic_conversion(rcv2[4:8]),16)) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
         json_data["Timestamp"] = timestamp
-        #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
+        print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
         json_data["Status"] = status
     else:
         isReady = False
@@ -267,14 +269,6 @@ def data_receiving():
         #print("s:"+ "0x40")
         rcv4 = spi.xfer2([0x40]*16) # follow up action
         #print(rcv4)
-        """
-        degreeX = deg_conversion(rcv4[0:2])
-        degreeY = deg_conversion(rcv4[2:4])
-        degreeZ = deg_conversion(rcv4[4:6])
-        Temperature = tem_conversion(rcv4[6:8])
-        Displacement_ch4 = dis_conversion(rcv4[8:12])
-        Displacement_ch5 = basic_conversion(rcv4[12:])
-        """
         degreeX = deg_conversion(rcv4[0:2]) + Offset['TI'] 
         degreeY = deg_conversion(rcv4[2:4]) + Offset['TI'] 
         degreeZ = deg_conversion(rcv4[4:6]) + Offset['TI'] 
