@@ -314,6 +314,7 @@ def data_receiving():
         json_data["Strain"] = strain_list
         time.sleep(d2)
         console_msg += F" trigger= {json_data['trigger']}"
+        json_data["Status"]="Ok"
         return json_data
 
 def set_config_data(config_data):
@@ -436,7 +437,6 @@ def do_command(command, param):
     elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
-        data["Status"] = 'Ok'
         sending_data = json.dumps(data, ensure_ascii=False) 
 
     elif command=="STATUS":
