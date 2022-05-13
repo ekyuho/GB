@@ -163,7 +163,6 @@ def do_user_command(aename, jcmd):
     elif cmd == 'measure':
         print(f'cmd measure {aename}')
         timer[aename]=0
-        do_measure_report()
         
 '''
     ClientSock.sendall(jcmd["cmd"].encode())
@@ -539,25 +538,25 @@ def do_capture():
 def do_measure_report():
     global ae, timer
     for aename in ae: 
-        cmeasure = ae[aename]['config']['cmeasure']
-        if not aename in last_sensor_value:
-            print('do_measure_report: no data, skip')
-
-        cmeasure=ae[aename]['config']['cmeasure']
         if aename in timer and timer[aename]==0:
+            if not aename in last_sensor_value:
+                print('do_measure_report: no data, skip')
+                continue
+
             stype = sensor_type(aename)
             if not stype in last_sensor_value[aename]:
                 print(f'do_measure_report: PANIC {aename} {last_sensor_value[aename]}')
                 return
+            print(f'do_measure {aename}')
             if stype=='AC': 
-                periodic_acceleration.report()
+                periodic_acceleration.report(aename)
             else:
                 dmeasure = {}
                 dmeasure['val'] = last_sensor_value[aename][stype]
                 ae[aename]['data']['dmeasure'] = dmeasure
                 create.ci(aename, 'data', 'dmeasure')
 
-            timer[aename]=cmeasure['measureperiod']
+            timer[aename]= ae[aename]['config']['cmeasure']['measureperiod']
             print(f"refill timer[{aename}]={cmeasure['measureperiod']}")
         timer[aename]-=1    
 

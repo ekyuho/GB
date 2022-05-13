@@ -39,7 +39,7 @@ def find_pathlist(cmeasure):
         time_gap = present_time-file_time
         if time_gap <= cmeasure["measureperiod"]: # 추후 데이터 수집 범위 10분으로 고정 예정
             data_path_list.append(path+'/'+file_list[i])
-            print(file_list[i])
+            #print(file_list[i])
     return data_path_list
 
 # double FFT(cmeasure, data_list)
@@ -88,8 +88,9 @@ def FFT(cmeasure, data_list):
 
 # def void read(string aename)
 # 입력받은 aename을 가진 oneM2M 서버에 통계값을 포함한 컨텐트인스턴스 생성 명령을 보냅니다.
-def read(aename):
+def report(aename):
     global ae
+    print(f'periodic_accerelation  {aename}')
     cmeasure = ae[aename]['config']['cmeasure']
     path_list = find_pathlist(cmeasure)
     path_list.sort() # 추후 fft 시작시간을 알아내기 위해 정렬
@@ -141,9 +142,3 @@ def read(aename):
                 fft["st1hz"]=hrz
                 ae[aename]['data']['fft']=fft
                 create.ci(aename, 'data', 'fft')
-            
-def report():
-    global ae
-    print('periodic_acceleration ')
-    for aename in ae:
-        read(aename)
