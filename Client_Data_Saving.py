@@ -300,13 +300,47 @@ def do_trigger_followup(aename):
     trigger_in_progress[aename]='0'
     dtrigger=ae[aename]['data']['dtrigger']
 
+    def find_pathlist():
+        global ae
+        ctrigger = ae[aename]['config']['ctrigger']
+        path = F"{root}/raw_data/Acceleration"
+        file_list = os.listdir(path)
+        present_time = time.time()
+        data_path_list = list()
+        for i in range (len(file_list)):
+            file_time = os.path.getmtime(path+'/'+file_list[i])
+            time_gap = present_time-file_time
+            if time_gap <= ctrigger['afsec']+ctrigger['bfsec']: # 데이터 생성시각을 기준으로 데이터 수집중. 
+                data_path_list.append(path+'/'+file_list[i])
+                #print(file_list[i])
+        data_path_list.sort()
+        return data_path_list
+
+    # path에 존재하는 모든 data를 열어보고, 보낼 데이터 list를 작성한다.
+    # 정렬된 data_path_list가 들어오기 때문에, 가장 처음 들어오는 데이터가 가장 오래된 데이터. 즉, start data이다.
+    def merge_data(data_path_list):
+        global ae
+        dtrigger=ae[aename]['data']['dtrigger']
+        data_list = list()
+        for file in range(len(data_path_list)):
+            with open(data_path_list[file], "rb") as f:
+                one_file = json.loads(f.read().decode('utf_8'))
+                if file==0:
+                    dtrigger["start"] = one_file["time"]
+            for i in range(len(one_file["data"])):
+                data_list.append(one_file["data"][i])
+
+        return data_list
     #아래의  function을 만들어야 합니다
+    
+    data = merge_data(find_pathlist())
     #data= merge_data(dtrigger['start'])
-    data=[1,2,3,4,5]
+    #data=[1,2,3,4,5]
 
     dtrigger['count']=len(data)
-    dtrigger['data']=json.dumps(data)
+    dtrigger['data']=data
     create.ci(aename, 'data', 'dtrigger')
+    print("trigger data has sent")
 
 
 def do_capture():
@@ -337,35 +371,69 @@ def do_capture():
     #print('got=',jsonData)
     j=jsonData
     for aename in ae:
-        if j['trigger'][sensor_type(aename)]=='1':
+        if j['trigger'][sensor_type(aename)]=='1' and sensor_type(aename) in j['trigger'] :
             if aename in trigger_in_progress and trigger_in_progress[aename]=='1':
                 continue
 
-            trigger_in_progress[aename]='1'
-            ctrigger=ae[aename]['config']['ctrigger']
-            cmeasure=ae[aename]['config']['cmeasure']
-            dtrigger=ae[aename]['data']['dtrigger']
-            dtrigger['time']=now.strftime("%Y-%m-%d %H:%M:%S.%f")
-            dtrigger['start']=(now-timedelta(seconds=ctrigger['bfsec'])).strftime("%Y-%m-%d %H:%M:%S.%f")
-            dtrigger['mode']=ctrigger['mode']
-            dtrigger['sthigh']=ctrigger['st1high']
-            dtrigger['stlow']=ctrigger['st1low']
-            dtrigger['samplerate']=cmeasure['samplerate']
-            dtrigger['val']=1
+            if sensor_type(aename) == "AC": # 동적 데이터의 경우, 트리거 전초와 후초를 고려해 전송 시행
+                    
+                trigger_in_progress[aename]='1'
+                ctrigger=ae[aename]['config']['ctrigger']
+                cmeasure=ae[aename]['config']['cmeasure']
+                dtrigger=ae[aename]['data']['dtrigger']
+                dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
+                dtrigger['start']=(now-timedelta(seconds=ctrigger['bfsec'])).strftime("%Y-%m-%d %H:%M:%S.%f") #[트리거 발생 당시 시각 - bfsec]의 시각
+                dtrigger['mode']=ctrigger['mode']
+                dtrigger['sthigh']=ctrigger['st1high']
+                dtrigger['stlow']=ctrigger['st1low']
+                dtrigger['samplerate']=cmeasure['samplerate']
+                #dtrigger['val']=1
 
-            print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
-            if int(ctrigger['afsec']) and ctrigger['afsec']>0:
-                Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start()
-                print(f"set trigger followup in {ctrigger['afsec']} sec")
-            else:
-                print(f"invalid afsec= {ctrigger['afsec']}")
+                print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+                if int(ctrigger['afsec']) and ctrigger['afsec']>0:
+                    Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start()
+                    print(f"set trigger followup in {ctrigger['afsec']} sec")
+                else:
+                    print(f"invalid afsec= {ctrigger['afsec']}")
+            
+            else: # 정적 데이터의 경우, 트리거 발생 당시의 데이터를 전송한다
 
+                ctrigger=ae[aename]['config']['ctrigger']
+                cmeasure=ae[aename]['config']['cmeasure']
+                dtrigger=ae[aename]['data']['dtrigger']
+                dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
+                dtrigger['start']=jsonData["Timestamp"]
+                dtrigger['mode']=ctrigger['mode']
+                dtrigger['sthigh']=ctrigger['st1high']
+                dtrigger['stlow']=ctrigger['st1low']
+                dtrigger['samplerate']=cmeasure['samplerate']
+                dtrigger['count'] = 1
+
+                data_list = list()
+                
+                
+
+                if sensor_type(aename) == "DI":
+                    data_list.append(jsonData["Displacement"][dis_channel])
+                elif sensor_type(aename) == "TP":
+                    data_list.append(jsonData["Temperature"])
+                elif sensor_type(aename) == "TI":
+                    data_list.append(jsonData["Degree"][deg_axis])
+                else:
+                    data_list.append("nope")
+
+                dtrigger['data'] = data_list
+                print(f"got trigger {aename}")
+                print("trigger data uploading...")
+                create.ci(aename, "data", "dtrigger") # 정적 트리거 전송은 따로 do_trigger_followup을 실행하지 않는다.
+                print("trigger data has sent")
+                
 
 
     time_old=now
     Time_data = jsonData["Timestamp"]
     Temperature_data = jsonData["Temperature"]
-    Displacement_data = jsonData["Displacement"]["ch4"]
+    Displacement_data = jsonData["Displacement"][dis_channel]
     
     acc_list = list()
     str_list = list()
@@ -481,8 +549,6 @@ for aename in ae:
     print(f"cmeasure.usefft= {cmeasure['usefft']}") 
     print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
     # rawperiod의 간격마다 raw file 통합 실시
-    # 아직 실제 raw file 전송은 수행하고 있지 않음
-    # for test, rawperiod is 10 seconds
     RepeatedTimer(interval*60, File_Merge.doit)
     RepeatedTimer(interval*60, File_Cleaner.doit)
 

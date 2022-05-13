@@ -91,8 +91,7 @@ def FFT(cmeasure, data_list):
 def read(aename):
     cmeasure = ae[aename]['config']['cmeasure']
     path_list = find_pathlist(cmeasure)
-    now = datetime.now()
-
+    path_list.sort() # 추후 fft 시작시간을 알아내기 위해 정렬
     data_list = list()
 
     # 통계의 대상이 되는 모든 json file의 data를 하나의 list에 저장합니다.
@@ -120,14 +119,26 @@ def read(aename):
     
         create.ci(aename, 'data', 'dmeasure')
         
-        if cmeasure["usefft"] in {"Y","y"}:
+        if cmeasure["usefft"] == "Y" or "y":
             hrz = FFT(cmeasure, data_list)
             fft = ae[aename]['data']['fft']
+
+            start_index = 0
+            end_index = 1024//cmeasure["samplerate"]
+
+            with open(path_list[start_index]) as f:
+                json_data = json.load(f)
+                start_time = json_data["time"]
+
+            with open(path_list[end_index]) as f:
+                json_data = json.load(f)
+                end_time = json_data["time"]
+            
             if hrz != -1 : #FFT 연산에 성공한 경우에만 hrz 기록
-                fft["start"]="임시"
-                fft["end"]="임시"
+                fft["start"]=start_time
+                fft["end"]=end_time
                 fft["st1hz"]=hrz
-            create.ci(aename, 'data', 'fft')
+                create.ci(aename, 'data', 'fft')
             
 def report():
     print('periodic_acceleration ')
