@@ -52,6 +52,11 @@ def find_path(cmeasure):
 
 def read(aename):
     cmeasure = ae[aename]['config']['cmeasure']
+
+    if cmeasure['usefft'] in {'Y','y'}:
+        print(f'no fft implementation for {aename}')
+    return
+
     data_path = find_path(cmeasure)
     now = datetime.now()
     
@@ -66,6 +71,7 @@ def read(aename):
         create.ci(aename, 'data', 'dmeasure')
 
 def report():
+    global ae
     print('periodic_temperature')
     for aename in ae:
         read(aename)

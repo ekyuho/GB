@@ -46,7 +46,7 @@ def ci(aename, cnt, subcnt):
     if "m2m:dbg" in r.json():
         print(f'got error {r.json}')
     else:
-        print(f'created {url}/{r.json()["m2m:cin"]["rn"]}\n{r.json()["m2m:cin"]["con"]}')
+        print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
         if os.path.exists('slackkey.txt'):
             global slack
             if slack=="":
@@ -62,7 +62,7 @@ def allci(aei, all):
     for cnti in ae[aei]:
         for subcnti in ae[aei][cnti]:
             if cnti in all:
-                print(f'{aei}/{cnti}/{subcnti}')
+                #print(f'{aei}/{cnti}/{subcnti}')
                 ci(aei, cnti, subcnti)
 
 if __name__== "__main__":

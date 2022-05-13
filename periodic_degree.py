@@ -21,8 +21,7 @@ root=conf.root
 # string find_pathlist()
 # 통계의 대상이 될 파일 path를 return합니다.
 # 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
-def find_path():
-    global measureperiod
+def find_path(cmeasure):
     path = F"{root}/raw_data/Degree"
     file_list = os.listdir(path)
     present_time = time.time()
@@ -44,6 +43,11 @@ def find_path():
 
 def read(aename):
     cmeasure = ae[aename]['config']['cmeasure']
+
+    if cmeasure['usefft'] in {'Y','y'}:
+        print(f'no fft implementation for {aename}')
+    return
+
     data_path = find_path(cmeasure)
     now = datetime.now()
     
@@ -58,7 +62,8 @@ def read(aename):
         create.ci(aename, 'data', 'dmeasure')
 
 def report():
-    print('periodic_degree ')
+    global ae
+    print('trigger and fft ')
     for aename in ae:
         read(aename)
 

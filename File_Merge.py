@@ -26,59 +26,40 @@ connect = conf.config_connect
 host = connect["uploadip"]
 port = 2883 # 통일성을 위해 추후 port = connect["uploadport"]로 바꿔야할듯합니다만, uploadport의 기본값이 건기연 서버의 포트와 달라(80) 임시로 상수를 입력해두었습니다.
 
+path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree'}
+
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
 
 # 통합할 파일 list 작성
-def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 뽑는다
-    raw_path = F"{root}/raw_data"
-    if aename == "AC" :
-        raw_path+="/Acceleration"
-    elif aename == "DI" :
-        raw_path+="/Displacement"
-    elif aename == "TP" :
-        raw_path+="/Temperature"
-    elif aename == "TI" :
-        raw_path+="/Degree"
-    else :
-        print("aename error")
-        return
+def filepath_list(stype, rawperiod): # 가장 최근 rawperiod간의 파일을 뽑는다
+    raw_path = F"{root}/raw_data/{path[stype]}"
 
     file_list = os.listdir(raw_path)
     present_time = time.time()
     data_path_list = list()
+    print(f'raw_path= {raw_path}')
     for i in range (len(file_list)):
         file_time = os.path.getmtime(raw_path+'/'+file_list[i])
         time_gap = present_time-file_time
-        if time_gap <= rawperiod: # rawperiod에 따라 data를 수집한다. 기본값 60분
+        if time_gap <= rawperiod*60: # rawperiod에 따라 data를 수집한다. 기본값 60분
             data_path_list.append(raw_path+'/'+file_list[i])
             #print(file_list[i])
     data_path_list.sort()
     return data_path_list
 
-def file_save(aename, rawperiod):
-    save_path = F"{root}/merged_data"
-    if aename == "AC" :
-        save_path+="/Acceleration"
-    elif aename == "DI" :
-        save_path+="/Displacement"
-    elif aename == "TP" :
-        save_path+="/Temperature"
-    elif aename == "TI" :
-        save_path+="/Degree"
-    else :
-        print("aename error")
-        return
+def file_save(stype, rawperiod):
+    save_path = F"{root}/merged_data/{path[stype]}"
     
     #통합 데이터를 저장할 디렉토리가 없다면 생성
     if not os.path.exists(save_path): os.makedirs(save_path)
 
     #통합할 데이터 list를 불러온다
-    data_path_list = filepath_list(aename, rawperiod) 
+    print(f'save_path= {save_path}')
+    data_path_list = filepath_list(stype, rawperiod) 
 
     if len(data_path_list) == 0:
         print("no data to merge") #통합할 데이터가 전혀 없는 경우, 통합을 수행하지 않음
-        print("waiting...")
         return
 
     empty_list = list() # time, data값이 dict 형태로 삽입될 배열
@@ -107,21 +88,23 @@ def file_save(aename, rawperiod):
             
 
     now = datetime.now()
-    file_name = aename+now.strftime("-%Y%m%d%H%M")
+    file_name = stype+now.strftime("-%Y%m%d%H%M")
     with open (F"{save_path}/inoon-{file_name}", "w") as f:
         json.dump(merged_file, f, indent=4)
 
     url = F"http://{host}:{port}/upload"
 
     r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/inoon-{file_name}", "rb")})
-    print("raw data upload trying...")
+    print("raw data upload in progress...")
+    print(f'got code= {r.status_code}')
     print(r.text)
         
 def doit():
+    global ae
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
+        print(f'File_Merge rawperiod= {rawperiod}')
         file_save(sensor_type(aename), rawperiod)
     
-    
-
-
+if __name__ == "__main__":
+    doit()
