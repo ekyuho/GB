@@ -14,15 +14,15 @@ supported_sensors = {'AC', 'DI', 'TP', 'TI'}
 #### 다음 섹션은 센서별 generic factory 초기설정값
 #####################################################################
 config_ctrigger={}
-config_ctrigger["AC"]={"use":"N","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
-config_ctrigger["DI"]={"use":"N","mode":3,"st1high":60,"st1low":10,"bfsec":0,"afsec":1}
-config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
-config_ctrigger["TI"]={"use":"N","mode":3,"st1high":5,"st1low":-20,"bfsec":0,"afsec":1}
+config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
+config_ctrigger["DI"]={"use":"Y","mode":3,"st1high":60,"st1low":10,"bfsec":0,"afsec":1}
+config_ctrigger["TP"]={"use":"Y","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
+config_ctrigger["TI"]={"use":"Y","mode":3,"st1high":5,"st1low":-20,"bfsec":0,"afsec":1}
 # saved for copy just in case
 #{"use":"Y","mode":1,"st1high":200,"st1low":-2000,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
 
 config_cmeasure={}
-config_cmeasure['AC']={'sensitivity':20,'samplerate':"100",'usefft':'N'}
+config_cmeasure['AC']={'sensitivity':20,'samplerate':"100",'usefft':'Y'}
 config_cmeasure['DI']={'sensitivity':24,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TP']={'sensitivity':16,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TI']={'sensitivity':20,'samplerate':"1",'usefft':'N'}
