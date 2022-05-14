@@ -506,7 +506,7 @@ def watchdog():
     global session_active
     if not session_active:
         print('found session freeze, exiting..')
-        sys.exit(1)
+        os._exit(0)
     session_active = False
 
 RepeatedTimer(10, watchdog)
@@ -519,7 +519,7 @@ while(1) :
         data = client_socket.recv(1024).decode().strip()
         if not data:
             print('socket troubled. exiting..')
-            sys.exit(1)
+            os._exit(0)
         m=re.match("(\w+)(.*)", data)
         #print(m.groups())
         if m:

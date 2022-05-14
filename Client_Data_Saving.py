@@ -97,7 +97,7 @@ def connect():
     return "yes"
 
 if connect()=='no':
-    sys.exit(1)
+    os._exit(0)
 
 make_oneM2M_resource.makeit()
 print('done any necessary Mobius resource creation')
@@ -428,7 +428,7 @@ def do_capture():
         jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
     except ValueError:
         print("socket troubled. exiting.")
-        sys.exit(1)
+        os._exit(0)
     now=datetime.now()
 
     if jsonData["Status"] == "False":
