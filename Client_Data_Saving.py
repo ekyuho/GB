@@ -151,14 +151,17 @@ def do_user_command(aename, jcmd):
         for x in jcmd["cmeasure"]:
             ae[aename]["config"]["cmeasure"][x]= jcmd["cmeasure"][x]
             mytimer.set(aename, 'data', cmeasure['measureperiod'])
+        save_conf()
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
         ae[aename]["config"]["time"]= jcmd["time"]
+        save_conf()
     elif cmd in {'setconnect'}:
         print(f'set {aename}/connect= {jcmd["connect"]}')
         for x in jcmd["connect"]:
             ae[aename]["connect"][x]=jcmd["connect"][x]
         create.ci(targetae, 'config', 'connect')
+        save_conf()
     elif cmd in {'measurestart'}:
         print('start regular measure tx')
         mqtt_measure=True

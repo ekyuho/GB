@@ -516,6 +516,7 @@ while(1) :
     # read Command
     if select.select([client_socket], [], [], 0.01)[0]: #ready? return in 0.01 sec
         data = client_socket.recv(1024).decode().strip()
+        session_active = True
         m=re.match("(\w+)(.*)", data)
         #print(m.groups())
         if m:
@@ -531,7 +532,6 @@ while(1) :
             time_old=now
         else:
             console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'
-        session_active = True
         do_command(cmd, param)
         print(console_msg)
 
