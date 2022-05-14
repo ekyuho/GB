@@ -633,15 +633,6 @@ def tick1sec():
     do_periodic_file()  # http upload at given interval
 
 
-gotnewfile=False
-for aename in ae:
-    if not ae[aename]["info"]["manufacture"]["fwver"] == VERSION:
-        print(f'fwver {ae[aename]["info"]["manufacture"]["fwver"]} != {VERSION}  create save file.')
-        ae[aename]["info"]["manufacture"]["fwver"]=VERSION
-        gotnewfile=True
-if gotnewfile:
-    save_conf()
-
 def startup():
     global ae
     print('create ci at boot')
