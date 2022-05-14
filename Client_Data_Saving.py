@@ -625,7 +625,7 @@ def do_periodic_file():
 def tick1sec():
     global mytimer
     mytimer.update()
-    mytimer.current()
+    #mytimer.current()
     #print('tick()')
     do_capture() # fetch sensor from board
     do_periodic_data() # create ci at given interval
