@@ -494,9 +494,9 @@ server_socket=""
 client_socket=""
 
 def watchdog():
-    print('dog -> ', end='')
     global session_active, server_socket, client_socket
     if session_active == False:
+        print('dog -> ', end='')
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((HOST, PORT))
@@ -504,8 +504,8 @@ def watchdog():
         client_socket, addr = server_socket.accept()
         print('Connected by', addr)
         print("Socket ready to listen")
+        print('bark')
     session_active = False
-    print('bark')
 
 watchdog()
 RepeatedTimer(10, watchdog)
