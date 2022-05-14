@@ -5,6 +5,7 @@
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
 VERSION='1.0'
+print('\n===========')
 print(f'Verion {VERSION}')
 
 from encodings import utf_8
@@ -37,8 +38,6 @@ import create  #for Mobius resource
 import conf
 
 import make_oneM2M_resource
-make_oneM2M_resource.makeit()
-print('done any necessary Mobius resource creation')
 
 import File_Merge
 import File_Cleaner
@@ -81,6 +80,27 @@ if not os.path.exists(deg_path): os.makedirs(deg_path)
 if not os.path.exists(dis_path): os.makedirs(dis_path)
 if not os.path.exists(str_path): os.makedirs(str_path)
 if not os.path.exists(tem_path): os.makedirs(tem_path)
+
+client_socket=""
+
+def connect():
+    global client_socket
+    if client_socket=="":
+        client_socket= socket(AF_INET, SOCK_STREAM)
+        client_socket.settimeout(5)
+        try:
+            client_socket.connect(('127.0.0.1', 50000))
+        except:
+            print('got no connection')
+            return 'no'
+        print("socket 연결에 성공했습니다.")
+    return "yes"
+
+if connect()=='no':
+    sys.exit(1)
+
+make_oneM2M_resource.makeit()
+print('done any necessary Mobius resource creation')
 
 # dict jsonCreate(dataTyep, timeData, realData)
 # 받은 인자를 통해 딕셔너리를 생성합니다.
@@ -150,7 +170,9 @@ def do_user_command(aename, jcmd):
         print(f'set cmeasure= {jcmd["cmeasure"]}')
         for x in jcmd["cmeasure"]:
             ae[aename]["config"]["cmeasure"][x]= jcmd["cmeasure"][x]
-            mytimer.set(aename, 'data', cmeasure['measureperiod'])
+        if "measureperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'data', cmeasure['measureperiod'])
+        if "stateperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'state', cmeasure['stateperiod'])
+        if "rawperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'file', cmeasure['rawperiod'])
         save_conf()
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
@@ -216,6 +238,10 @@ def got_callback(topic, msg):
         #print(' ==> not for me', topic, msg[:20],'...')
         return
 
+
+
+
+
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
@@ -269,10 +295,6 @@ def mqtt_sending(aename, data):
     mqttc.publish(F'/{cse["name"]}/{aename}/realtime', json.dumps(BODY, ensure_ascii=False))
     
 
-client_socket = socket(AF_INET, SOCK_STREAM)
-client_socket.connect(('127.0.0.1', 50000))
-print("socket 연결에 성공했습니다.")
-
 
 time_old=datetime.now()
 
@@ -300,9 +322,16 @@ def do_config(param):
 
     print(f"do_config seting= {setting}")
 
-    client_socket.sendall(("CONFIG"+json.dumps(setting, ensure_ascii=False)).encode())
+    if connect() == 'no': 
+        return
+    try:
+        client_socket.sendall(("CONFIG"+json.dumps(setting, ensure_ascii=False)).encode())
+        rData = client_socket.recv(10000)
+    except OSError as msg:
+        print(f"socket error {msg} exiting..")
+        sys.exit(1)
 
-    rData = client_socket.recv(10000)
+
     rData = rData.decode('utf_8')
     jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
 
@@ -383,13 +412,14 @@ def do_capture():
         return
 
     t1_start=process_time()
-    client_socket.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
-
+    #print('do capture')
+    if connect() == 'no':
+        return
     try:
+        client_socket.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
         rData = client_socket.recv(10000)
-    except client_socket.error as e:
-        raise MonitorSocketError("Could not receive data from monitor", e)
-        print("socket error. exiting..")
+    except OSError as msg:
+        print(f"socket error {msg} exiting..")
         sys.exit(1)
 
     t2_start=process_time()
@@ -596,6 +626,7 @@ def tick1sec():
     global mytimer
     mytimer.update()
     mytimer.current()
+    #print('tick()')
     do_capture() # fetch sensor from board
     do_periodic_data() # create ci at given interval
     do_periodic_state() # state create ci at given interval
@@ -611,11 +642,12 @@ for aename in ae:
 if gotnewfile:
     save_conf()
 
+
 for aename in ae:
     cmeasure=ae[aename]['config']['cmeasure']
     print(f"cmeasure['stateperiod'] ={cmeasure['stateperiod']}")
     if 'stateperiod' in cmeasure and isinstance(cmeasure['stateperiod'],int): 
-        mytimer.set(aename, 'state', cmeasure['stateperiod']*60)
+        mytimer.set(aename, 'state', cmeasure['stateperiod'])
         print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min")
     else: 
         mytimer.set(aename, 'state', 60*60)  #default min
@@ -630,7 +662,7 @@ for aename in ae:
     mytimer.timer[aename]['data']= 3  # run at the beginning
 
     if 'rawperiod' in cmeasure and isinstance(cmeasure['rawperiod'],int): 
-        mytimer.set(aename, 'file', cmeasure['rawperiod']*60)
+        mytimer.set(aename, 'file', cmeasure['rawperiod'])
         print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min") 
     else: 
         mytimer.set(aename, 'file', 60*60)  #default min
@@ -641,9 +673,8 @@ for aename in ae:
 
     print('create ci at boot')
     create.allci(aename, {'config','info'})
-    print('Ready')
     do_config({'aename':aename, 'cmd':'','save':'nosave'})
 
-
+print('Ready')
 # every 1.0 sec
 RepeatedTimer(1.0, tick1sec)

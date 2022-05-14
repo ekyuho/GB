@@ -11,7 +11,8 @@ class MyTimer:
             self.timer[aename]={"data":-1, "state":-1,"file":-1}
             self.expired[aename]={"data":-1, "state":-1,"file":-1}
             self.max[aename]={"data":-1, "state":-1,"file":-1}
-        self.timer[aename][domain] = sec
+        if domain in {'state', 'file'}: self.timer[aename][domain] = sec*60
+        else: self.timer[aename][domain] = sec
         self.expired[aename][domain] = False
         self.max[aename][domain] = sec
         self.current()

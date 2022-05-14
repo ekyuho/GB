@@ -13,12 +13,15 @@ import socket
 import select
 import json
 import math
+import sys
 from datetime import datetime
 from datetime import timedelta
 import re
 import os
 from RepeatedTimer import RepeatedTimer
 
+print('==================')
+print('Version 1.0')
 
 spi_bus = 0
 spi_device = 0
@@ -479,35 +482,33 @@ HOST = ''     # allow all
 PORT = 50000  # Use PORT 50000
 
 # Server socket
-#server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#server_socket.bind((HOST, PORT))
-#server_socket.listen(1)
-#print("Socket ready to listen")
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_socket.bind((HOST, PORT))
+server_socket.settimeout(10)
+server_socket.listen(1)
+while True:
+    try:
+        client_socket,addr = server_socket.accept()
+        print("Socket ready to listen")
+        break
+    except OSError as msg:
+        print('got found no client connection. keep waiting..')
+        continue
 
 #client_socket.setblocking(False)
 
 # 소켓 클라이언트와 연결
 
 session_active = False
-server_socket=""
-client_socket=""
 
 def watchdog():
-    global session_active, server_socket, client_socket
-    if session_active == False:
-        print('dog -> ', end='')
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((HOST, PORT))
-        server_socket.listen(1)
-        client_socket, addr = server_socket.accept()
-        print('Connected by', addr)
-        print("Socket ready to listen")
-        print('bark')
+    global session_active
+    if not session_active:
+        print('found session freeze, exiting..')
+        sys.exit(1)
     session_active = False
 
-watchdog()
 RepeatedTimer(10, watchdog)
 
 time_old=datetime.now()
@@ -516,7 +517,9 @@ while(1) :
     # read Command
     if select.select([client_socket], [], [], 0.01)[0]: #ready? return in 0.01 sec
         data = client_socket.recv(1024).decode().strip()
-        session_active = True
+        if not data:
+            print('socket troubled. exiting..')
+            sys.exit(1)
         m=re.match("(\w+)(.*)", data)
         #print(m.groups())
         if m:
@@ -525,6 +528,7 @@ while(1) :
                 param=m.groups()[1]
         else:
             continue
+        session_active = True
 
         now=datetime.now()
         if cmd.startswith("CAPTURE"):
