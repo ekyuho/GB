@@ -19,6 +19,7 @@ root=conf.root
 slack=""
 
 def ci(aename, cnt, subcnt):
+    global ae
     now = datetime.now()
     h={
         "Accept": "application/json",
@@ -69,11 +70,12 @@ def ci(aename, cnt, subcnt):
 
 # (ae.323376-TP_A1_01_X, {'info','config'})
 def allci(aei, all):
+    global ae
     print(f'create ci for containers= {all}')
     for cnti in ae[aei]:
         for subcnti in ae[aei][cnti]:
             if cnti in all:
-                #print(f'{aei}/{cnti}/{subcnti}')
+                print(f'{aei}/{cnti}/{subcnti}')
                 ci(aei, cnti, subcnti)
 
 if __name__== "__main__":

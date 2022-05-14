@@ -4,7 +4,7 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
-VERSION='1.0'
+VERSION='2.0'
 print('\n===========')
 print(f'Verion {VERSION}')
 
@@ -329,7 +329,7 @@ def do_config(param):
         rData = client_socket.recv(10000)
     except OSError as msg:
         print(f"socket error {msg} exiting..")
-        sys.exit(1)
+        os._exit(0)
 
 
     rData = rData.decode('utf_8')
@@ -342,13 +342,13 @@ def do_config(param):
         create.ci(aename, 'state','')
         return
 
-    print(f'do_config: got result {jsonData}')
-    if cmd in {'ctrigger', 'cmeasure'}:
-        create.ci(targetae, 'config',cmd)
-    elif cmd == 'settime':
-        create.ci(targetae, 'config', 'time')
 
     if save=='save':
+        print(f'do_config: got result {jsonData}')
+        if cmd in {'ctrigger', 'cmeasure'}:
+            create.ci(targetae, 'config', cmd)
+        elif cmd == 'settime':
+            create.ci(targetae, 'config', 'time')
         save_conf()
 
 def do_trigger_followup(aename):
@@ -420,7 +420,7 @@ def do_capture():
         rData = client_socket.recv(10000)
     except OSError as msg:
         print(f"socket error {msg} exiting..")
-        sys.exit(1)
+        os._exit(0)
 
     t2_start=process_time()
     rData = rData.decode('utf_8')
@@ -642,6 +642,14 @@ for aename in ae:
 if gotnewfile:
     save_conf()
 
+def startup():
+    global ae
+    print('create ci at boot')
+    for aename in ae:
+        create.allci(aename, {'config','info'})
+        do_config({'aename':aename, 'cmd':'','save':'nosave'})
+        mytimer.timer[aename]['data']= 3  # run at the beginning
+
 
 for aename in ae:
     cmeasure=ae[aename]['config']['cmeasure']
@@ -659,7 +667,6 @@ for aename in ae:
     else: 
         mytimer.set(aename, 'data', 600)  #default sec
         print(f"cmeasure.measureperiod= defaulted 600 sec") 
-    mytimer.timer[aename]['data']= 3  # run at the beginning
 
     if 'rawperiod' in cmeasure and isinstance(cmeasure['rawperiod'],int): 
         mytimer.set(aename, 'file', cmeasure['rawperiod'])
@@ -671,10 +678,8 @@ for aename in ae:
     print(f"cmeasure.usefft= {cmeasure['usefft']}") 
     print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
 
-    print('create ci at boot')
-    create.allci(aename, {'config','info'})
-    do_config({'aename':aename, 'cmd':'','save':'nosave'})
 
 print('Ready')
+Timer(10, startup).start()
 # every 1.0 sec
 RepeatedTimer(1.0, tick1sec)
