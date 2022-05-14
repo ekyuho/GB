@@ -17,6 +17,7 @@ from datetime import datetime
 from datetime import timedelta
 import re
 import os
+from RepeatedTimer import RepeatedTimer
 
 
 spi_bus = 0
@@ -478,17 +479,36 @@ HOST = ''     # allow all
 PORT = 50000  # Use PORT 50000
 
 # Server socket
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_socket.bind((HOST, PORT))
-server_socket.listen(1)
-print("Socket ready to listen")
+#server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#server_socket.bind((HOST, PORT))
+#server_socket.listen(1)
+#print("Socket ready to listen")
 
-client_socket, addr = server_socket.accept()
 #client_socket.setblocking(False)
 
-print('Connected by', addr)
 # 소켓 클라이언트와 연결
+
+session_active = False
+server_socket=""
+client_socket=""
+
+def watchdog():
+    print('dog -> ', end='')
+    global session_active, server_socket, client_socket
+    if session_active == False:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((HOST, PORT))
+        server_socket.listen(1)
+        client_socket, addr = server_socket.accept()
+        print('Connected by', addr)
+        print("Socket ready to listen")
+    session_active = False
+    print('bark')
+
+watchdog()
+RepeatedTimer(10, watchdog)
 
 time_old=datetime.now()
 sync_time()
@@ -511,5 +531,8 @@ while(1) :
             time_old=now
         else:
             console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'
+        session_active = True
         do_command(cmd, param)
         print(console_msg)
+
+

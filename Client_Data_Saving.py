@@ -150,6 +150,7 @@ def do_user_command(aename, jcmd):
         print(f'set cmeasure= {jcmd["cmeasure"]}')
         for x in jcmd["cmeasure"]:
             ae[aename]["config"]["cmeasure"][x]= jcmd["cmeasure"][x]
+            mytimer.set(aename, 'data', cmeasure['measureperiod'])
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
         ae[aename]["config"]["time"]= jcmd["time"]
@@ -591,7 +592,7 @@ def do_periodic_file():
 def tick1sec():
     global mytimer
     mytimer.update()
-    #mytimer.current()
+    mytimer.current()
     do_capture() # fetch sensor from board
     do_periodic_data() # create ci at given interval
     do_periodic_state() # state create ci at given interval
@@ -606,7 +607,6 @@ for aename in ae:
         gotnewfile=True
 if gotnewfile:
     save_conf()
-
 
 for aename in ae:
     cmeasure=ae[aename]['config']['cmeasure']
