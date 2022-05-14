@@ -123,7 +123,7 @@ install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','loc
 
 make_ae('ae.12345141-AC_SIM_01_X', install)
 make_ae('ae.12345141-DI_SIM_01_X', install)
-make_ae('ae.12345141-TP_SIM_01_X', install)
+#make_ae('ae.12345141-TP_SIM_01_X', install)
 make_ae('ae.12345141-TI_SIM_01_X', install)
 
 
