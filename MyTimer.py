@@ -6,6 +6,7 @@ class MyTimer:
         self.expired={}
         #self.max={aename:{"data":False, "state":False,"file":False}}
         self.max={}
+
     def set(self, aename, domain, sec):
         if not aename in self.timer: 
             self.timer[aename]={"data":-1, "state":-1,"file":-1}
@@ -20,6 +21,7 @@ class MyTimer:
     def current(self):
         for x in self.timer:
             print(f'{x} {self.timer[x]} {self.max[x]} {self.expired[x]}')
+
     def update(self):
         for x in self.timer:
             if self.timer[x]['data'] == 0: 
@@ -30,13 +32,13 @@ class MyTimer:
 
             if self.timer[x]['state'] == 0: 
                 self.expired[x]['state'] = True
-                self.timer[x]['state'] = self.max[x]['state']
+                self.timer[x]['state'] = self.max[x]['state']*60
             else:
                 self.timer[x]['state'] -=1
 
             if self.timer[x]['file'] == 0: 
                 self.expired[x]['file'] = True
-                self.timer[x]['file'] = self.max[x]['file']
+                self.timer[x]['file'] = self.max[x]['file']*60
             else:
                 self.timer[x]['file'] -=1
         
