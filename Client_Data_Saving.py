@@ -381,10 +381,20 @@ def do_capture():
     t1_start=process_time()
     client_socket.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
 
-    rData = client_socket.recv(10000)
+    try:
+        rData = client_socket.recv(10000)
+    except client_socket.error as e:
+        raise MonitorSocketError("Could not receive data from monitor", e)
+        print("socket error. exiting..")
+        sys.exit(1)
+
     t2_start=process_time()
     rData = rData.decode('utf_8')
-    jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+    try:
+        jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+    except ValueError:
+        print("socket troubled. exiting.")
+        sys.exit(1)
     now=datetime.now()
 
     if jsonData["Status"] == "False":
