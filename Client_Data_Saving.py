@@ -499,6 +499,10 @@ def do_capture():
 
 
     time_old=now
+    if not "Timestamp" in jsonData:
+        print(f'****** no Timestamp  {jsonData}')
+        return
+
     Time_data = jsonData["Timestamp"]
     Temperature_data = jsonData["Temperature"]
     Displacement_data = jsonData["Displacement"][dis_channel]
