@@ -182,7 +182,7 @@ def do_user_command(aename, jcmd):
         print(f'set {aename}/connect= {jcmd["connect"]}')
         for x in jcmd["connect"]:
             ae[aename]["connect"][x]=jcmd["connect"][x]
-        create.ci(targetae, 'config', 'connect')
+        create.ci(aename, 'config', 'connect')
         save_conf()
     elif cmd in {'measurestart'}:
         print('start regular measure tx')
@@ -317,8 +317,8 @@ def do_config(param):
         ctrigger = ae[aename]['config']['ctrigger']
         if 'use' in ctrigger:
             setting[sensor_type(aename)]['use'] = ctrigger['use']
-            if 'st1high' in ctrigger and str(ctrigger['st1high']).isnumeric(): setting[sensor_type(aename)]['st1high']= int(ctrigger['st1high'])
-            if 'st1low' in ctrigger and str(ctrigger['st1low']).isnumeric(): setting[sensor_type(aename)]['st1low']= int(ctrigger['st1low'])
+            if 'st1high' in ctrigger: setting[sensor_type(aename)]['st1high']= int(ctrigger['st1high'])
+            if 'st1low' in ctrigger: setting[sensor_type(aename)]['st1low']= int(ctrigger['st1low'])
 
     print(f"do_config seting= {setting}")
 
@@ -346,9 +346,9 @@ def do_config(param):
     if save=='save':
         print(f'do_config: got result {jsonData}')
         if cmd in {'ctrigger', 'cmeasure'}:
-            create.ci(targetae, 'config', cmd)
+            create.ci(aename, 'config', cmd)
         elif cmd == 'settime':
-            create.ci(targetae, 'config', 'time')
+            create.ci(aename, 'config', 'time')
         save_conf()
 
 def do_trigger_followup(aename):
@@ -399,10 +399,19 @@ def do_trigger_followup(aename):
     create.ci(aename, 'data', 'dtrigger')
     print("trigger data has sent")
 
+session_active = False
+def watchdog():
+    global session_active
+    if not session_active:
+        print('found server capture session freeze, exiting..')
+        os._exit(0)
+    session_active = False
+RepeatedTimer(10, watchdog)
+
 
 def do_capture():
     global client_socket, mqtt_measure, time_old
-    global worktodo, worktodo_param
+    global worktodo, worktodo_param, session_active
     global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
 
     if not worktodo=="":
@@ -431,6 +440,7 @@ def do_capture():
         os._exit(0)
     now=datetime.now()
 
+    session_active=True
     if jsonData["Status"] == "False":
         print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec')
         time_old=now
@@ -641,6 +651,7 @@ def startup():
     global ae
     print('create ci at boot')
     for aename in ae:
+        ae[aename]['info']['manufacture']['fwver']=VERSION
         create.allci(aename, {'config','info'})
         do_config({'aename':aename, 'cmd':'','save':'nosave'})
         mytimer.timer[aename]['data']= 3  # run at the beginning
@@ -672,6 +683,7 @@ for aename in ae:
 
     print(f"cmeasure.usefft= {cmeasure['usefft']}") 
     print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
+
 
 
 print('Ready')
