@@ -42,19 +42,30 @@ def ci(aename, cnt, subcnt):
     #body["m2m:cin"]["con"]["time"]=now.strftime("%Y-%m-%d %H:%M:%S")
     #print(f'{url} {json.dumps(body)[:40]}')
               
-    r = requests.post(url, data=json.dumps(body), headers=h)
-    if "m2m:dbg" in r.json():
-        print(f'got error {r.json}')
-    else:
-        print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
-        if os.path.exists('slackkey.txt'):
-            global slack
-            if slack=="":
-                with open("slackkey.txt") as f: slack=f.read()
-                print('activate slack alarm')
-            url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel={slack}'
-            #print(url2)
+    gotok=False
+    try:
+        r = requests.post(url, data=json.dumps(body), headers=h)
+        r.raise_for_status()
+        if "m2m:dbg" in r.json():
+            print(f'got error {r.json}')
+        else:
+            print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
+            gotok=True
+    except requests.exceptions.RequestException as e:
+        print(f'failed to ci {e}')
+
+
+    if gotok and os.path.exists('slackkey.txt'):
+        global slack
+        if slack=="":
+            with open("slackkey.txt") as f: slack=f.read()
+            print('activate slack alarm')
+        url2=f'http://damoa.io:8999/?msg=created {url}/{r.json()["m2m:cin"]["rn"]}&channel={slack}'
+        #print(url2)
+        try:
             r = requests.get(url2)
+        except requests.exceptions.RequestException as e:
+            print(f'failed to slack {e}')
 
 # (ae.323376-TP_A1_01_X, {'info','config'})
 def allci(aei, all):

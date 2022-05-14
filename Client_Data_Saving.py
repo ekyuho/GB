@@ -18,11 +18,14 @@ import select
 import os
 import sys
 import time
+import re
 from time import process_time
 from datetime import datetime, timedelta
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
+import MyTimer
+mytimer= MyTimer.MyTimer()
 
 import versionup
 import periodic_state
@@ -56,7 +59,8 @@ mqttc=""
 command=""
 # key==aename
 trigger_in_progress={}
-timer={}
+
+
 last_sensor_value={}
 
 # 다중 데이터의 경우, 어떤 data를 저장할지 결정해야한다
@@ -108,7 +112,7 @@ def save_conf():
 def do_user_command(aename, jcmd):
     global mqtt_realtime, mqtt_measure
     global ae, worktodo, worktodo_param
-    global timer
+    global mytimer
     cmd=jcmd['cmd']
     if 'reset' in cmd:
         file=f"{root}/config.dat"
@@ -160,9 +164,11 @@ def do_user_command(aename, jcmd):
     elif cmd in {'measurestop'}:
         print('stop regular measure tx')
         mqtt_measure=False
-    elif cmd == 'measure':
-        print(f'cmd measure {aename}')
-        timer[aename]=0
+    elif cmd == 'inoon':
+        print(f'cmd onoon {jcmd["cmd2"]}')
+        if jcmd["cmd2"] == 'data': mytimer.expired[aename]['data']= True  # run at the beginning
+        if jcmd["cmd2"] == 'file': mytimer.expired[aename]['file']= True  # run at the beginning
+        if jcmd["cmd2"] == 'state': mytimer.expired[aename]['state']= True  # run at the beginning
         
 '''
     ClientSock.sendall(jcmd["cmd"].encode())
@@ -535,17 +541,18 @@ def do_capture():
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
 # handles periodic measure (fft for AC)
-def do_measure_report():
-    global ae, timer
+def do_periodic_data():
+    global ae, mytimer
     for aename in ae: 
-        if aename in timer and timer[aename]==0:
+        if mytimer.ring(aename, 'data'):
+            print(f'periodic_data: got expiration')
             if not aename in last_sensor_value:
-                print('do_measure_report: no data, skip')
+                print('do_periodic_data: no data, skip')
                 continue
 
             stype = sensor_type(aename)
             if not stype in last_sensor_value[aename]:
-                print(f'do_measure_report: PANIC {aename} {last_sensor_value[aename]}')
+                print(f'do_periodic_data: PANIC {aename} {last_sensor_value[aename]}')
                 return
             print(f'do_measure {aename}')
             if stype=='AC': 
@@ -556,9 +563,30 @@ def do_measure_report():
                 ae[aename]['data']['dmeasure'] = dmeasure
                 create.ci(aename, 'data', 'dmeasure')
 
-            timer[aename]= ae[aename]['config']['cmeasure']['measureperiod']
-            print(f"refill timer[{aename}]={cmeasure['measureperiod']}")
-        timer[aename]-=1    
+def do_periodic_state():
+    global ae, mytimer
+    for aename in ae: 
+        if mytimer.ring(aename, 'state'):
+            print(f'periodic_state: got expiration')
+            create.ci(aename, 'state','')
+
+def do_periodic_file():
+    global ae, mytimer
+    for aename in ae: 
+        if mytimer.ring(aename, 'file'):
+            print(f'periodic_file: got expiration')
+            File_Merge.doit
+            File_Cleaner.doit
+	
+def tick1sec():
+    global mytimer
+    mytimer.update()
+    #mytimer.current()
+    do_capture() # fetch sensor from board
+    do_periodic_data() # create ci at given interval
+    do_periodic_state() # state create ci at given interval
+    do_periodic_file()  # http upload at given interval
+
 
 gotnewfile=False
 for aename in ae:
@@ -569,26 +597,32 @@ for aename in ae:
 if gotnewfile:
     save_conf()
 
-# File_Merge shoud run first
-def do_merge_and_clean():
-    File_Merge.doit
-    File_Cleaner.doit
-	
 
 for aename in ae:
     cmeasure=ae[aename]['config']['cmeasure']
-    if 'stateperiod' in cmeasure and str(cmeasure['stateperiod']).isnumeric():
-        interval = cmeasure['stateperiod']
-    else:
-        interval = 60  #min
-    RepeatedTimer(interval*60, periodic_state.report)
+    print(f"cmeasure['stateperiod'] ={cmeasure['stateperiod']}")
+    if 'stateperiod' in cmeasure and isinstance(cmeasure['stateperiod'],int): 
+        mytimer.set(aename, 'state', cmeasure['stateperiod']*60)
+        print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min")
+    else: 
+        mytimer.set(aename, 'state', 60*60)  #default min
+        print(f"cmeasure.stateperiod= defaulted 60 min")
 
-    timer[aename]=3
-    if timer[aename]>cmeasure['measureperiod']:  timer[aename]=cmeasure['measureperiod']
+    if 'measureperiod' in cmeasure and isinstance(cmeasure['measureperiod'],int): 
+        mytimer.set(aename, 'data', cmeasure['measureperiod'])
+        print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
+    else: 
+        mytimer.set(aename, 'data', 600)  #default sec
+        print(f"cmeasure.measureperiod= defaulted 600 sec") 
+    mytimer.timer[aename]['data']= 3  # run at the beginning
 
-    print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
-    print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min") 
-    print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min") 
+    if 'rawperiod' in cmeasure and isinstance(cmeasure['rawperiod'],int): 
+        mytimer.set(aename, 'file', cmeasure['rawperiod']*60)
+        print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min") 
+    else: 
+        mytimer.set(aename, 'file', 60*60)  #default min
+        print(f"cmeasure.rawperiod= defauled 60 min") 
+
     print(f"cmeasure.usefft= {cmeasure['usefft']}") 
     print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
 
@@ -599,10 +633,4 @@ for aename in ae:
 
 
 # every 1.0 sec
-RepeatedTimer(1.0, do_capture)
-RepeatedTimer(1.0, do_measure_report)
-if 'rawperiod' in cmeasure and str(cmeasure['rawperiod']).isnumeric():
-    interval = cmeasure['rawperiod']
-else:
-    interval = 60  #min
-RepeatedTimer(interval*60, do_merge_and_clean)
+RepeatedTimer(1.0, tick1sec)
