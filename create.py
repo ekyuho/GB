@@ -50,7 +50,10 @@ def ci(aename, cnt, subcnt):
         if "m2m:dbg" in r.json():
             print(f'got error {r.json}')
         else:
-            print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
+            if len(json.dumps(r.json()["m2m:cin"]["con"])) < 100:
+                print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
+            else:
+                print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:100]} ...')
             gotok=True
     except requests.exceptions.RequestException as e:
         print(f'failed to ci {e}')

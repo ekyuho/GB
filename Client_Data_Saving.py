@@ -4,7 +4,7 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
-VERSION='2.0'
+VERSION='2.1'
 print('\n===========')
 print(f'Verion {VERSION}')
 
@@ -130,7 +130,6 @@ def save_conf():
     print(f"wrote config.dat")
 
 def do_user_command(aename, jcmd):
-    global mqtt_realtime, mqtt_measure
     global ae, worktodo, worktodo_param
     global mytimer
     cmd=jcmd['cmd']
@@ -151,10 +150,10 @@ def do_user_command(aename, jcmd):
         versionup.versionup(url)
     elif cmd in {'realstart'}:
         print('start mqtt real tx')
-        mqtt_realtime=True
+        ae[aename]['local']['realstart']='Y'
     elif cmd in {'realstop'}:
         print('stop mqtt real tx')
-        mqtt_realtime=False
+        ae[aename]['local']['realstart']='N'
     elif cmd in {'reqstate'}:
         print("create status ci")
         periodic_state.report()
@@ -185,16 +184,24 @@ def do_user_command(aename, jcmd):
         create.ci(aename, 'config', 'connect')
         save_conf()
     elif cmd in {'measurestart'}:
-        print('start regular measure tx')
-        mqtt_measure=True
+        ae[aename]['local']['measurestart']='Y'
+        print(f"set measurestart= {ae[aename]['local']['measurestart']}")
     elif cmd in {'measurestop'}:
-        print('stop regular measure tx')
-        mqtt_measure=False
+        ae[aename]['local']['measurestart']='N'
+        print(f"set measurestart= {ae[aename]['local']['measurestart']}")
     elif cmd == 'inoon':
         print(f'cmd onoon {jcmd["cmd2"]}')
         if jcmd["cmd2"] == 'data': mytimer.expired[aename]['data']= True  # run at the beginning
         if jcmd["cmd2"] == 'file': mytimer.expired[aename]['file']= True  # run at the beginning
         if jcmd["cmd2"] == 'state': mytimer.expired[aename]['state']= True  # run at the beginning
+        if jcmd["cmd2"] == 'printtick': 
+            ae[aename]['local']['printtick']='Y'
+            print(f"set printtick= {ae[aename]['local']['printtick']}")
+        if jcmd["cmd2"] == 'printnotick': 
+            ae[aename]['local']['printtick']='N'
+            print(f"set printtick= {ae[aename]['local']['printtick']}")
+    else:
+        print(f'invalid cmd {jcmd}')
         
 '''
     ClientSock.sendall(jcmd["cmd"].encode())
@@ -235,8 +242,7 @@ def got_callback(topic, msg):
         print(f'response {resp_topic} {j["rqi"]}')
 
     else:
-        #print(' ==> not for me', topic, msg[:20],'...')
-        return
+        print(' ==> not for me', topic, msg[:20],'...')
 
 
 
@@ -575,6 +581,9 @@ def do_capture():
 
             #print(F'real mqtt /{cse["name"]}/{aename}/realtime')
             mqtt_sending(aename, payload)
+        else:
+            #print('reslstart==N, skip real time mqtt sending')
+            pass
 
     
     # 센서별 json file 생성
@@ -603,6 +612,10 @@ def do_periodic_data():
     global ae, mytimer
     for aename in ae: 
         if mytimer.ring(aename, 'data'):
+            if ae[aename]['local']['measurestart']=='N':  # measure is controlled from remote user
+                print('measurestart==N, skip periodic data sending')
+                continue
+
             print(f'periodic_data: got expiration')
             if not aename in last_sensor_value:
                 print('do_periodic_data: no data, skip')
@@ -639,8 +652,7 @@ def do_periodic_file():
 def tick1sec():
     global mytimer
     mytimer.update()
-    #mytimer.current()
-    #print('tick()')
+    if ae[aename]['local']['printtick']=='Y': mytimer.current()
     do_capture() # fetch sensor from board
     do_periodic_data() # create ci at given interval
     do_periodic_state() # state create ci at given interval
@@ -654,8 +666,8 @@ def startup():
         ae[aename]['info']['manufacture']['fwver']=VERSION
         create.allci(aename, {'config','info'})
         do_config({'aename':aename, 'cmd':'','save':'nosave'})
-        mytimer.timer[aename]['data']= 3  # run at the beginning
-        mytimer.timer[aename]['state']= 6  # run at the beginning
+        mytimer.timer[aename]['data']= 6  # run at the beginning
+        mytimer.timer[aename]['state']= 3  # run at the beginning
 
 
 for aename in ae:

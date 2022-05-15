@@ -90,7 +90,7 @@ def make_ae(aename, install):
     ae[aename]['data']['fft'].update(data_fft)
     ae[aename]['data']['dmeasure'].update(data_dmeasure)
     TOPIC_list[aename]=F'/{cse["name"]}/{aename}/realtime'
-    ae[aename]['local']={}
+    ae[aename]['local']={'printtick':'N'}
     if sensor_type in {'AC', 'DI', 'TI', 'TP'}:   # 얘만 mqtt default 로  가동
         ae[aename]['local']['realstart']='Y'
         ae[aename]['local']['measurestart'] ='Y' 
@@ -121,10 +121,10 @@ ctrl={'cmd':''}
 
 install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'D'}
 
-make_ae('ae.32345141-AC_S1M_01_X', install)
-make_ae('ae.32345141-DI_S1M_01_X', install)
-make_ae('ae.32345141-TP_S1M_01_X', install)
-make_ae('ae.32345141-TI_S1M_01_X', install)
+make_ae('ae.80061056-AC_S1M_01_X', install)
+#make_ae('ae.32345141-DI_S1M_01_X', install)
+#make_ae('ae.32345141-TP_S1M_01_X', install)
+#make_ae('ae.32345141-TI_S1M_01_X', install)
 
 
 FFT_data_acc = {
