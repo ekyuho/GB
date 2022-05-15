@@ -364,7 +364,6 @@ def set_config_data(config_data):
         if 'st1high' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1h = int(config['ctrigger']['st1high'])
         if 'st1low' in config['ctrigger'] and str(config['ctrigger']['st1high']).isnumeric(): tp1l = int(config['ctrigger']['st1low'])
     '''
- 
 
     # formatting for GBC data structure and tranmisssion (two bytes) 
     # Revise latter!!!
@@ -377,8 +376,8 @@ def set_config_data(config_data):
     board_setting['sensorSelect'] =   int(np.uint16(sel_sensor))
     board_setting['highTemp'] =       int(np.int16(jdata['TP']['st1high']*100))
     board_setting['lowTemp'] =        int(np.int16(jdata['TP']['st1low']*100))
-    board_setting['highDisp'] =       int(np.int16(jdata['DI']['st1high']*100))
-    board_setting['lowDisp'] =        int(np.int16(jdata['DI']['st1low']*100))
+    board_setting['highDisp'] =       int(np.uint16((jdata['DI']['st1high']*692.9678+16339000)/1024))
+    board_setting['lowDisp'] =        int(np.uint16((jdata['DI']['st1low']*692.9678+16339000)/1024))
     board_setting['highStrain'] =     int(np.int16(0))
     board_setting['lowStrain'] =      int(np.int16(0))
     board_setting['highTilt'] =       int(np.int16(jdata['TI']['st1high']*100))

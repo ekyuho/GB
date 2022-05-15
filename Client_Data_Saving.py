@@ -690,4 +690,4 @@ for aename in ae:
 print('Ready')
 Timer(10, startup).start()
 # every 1.0 sec
-RepeatedTimer(1.0, tick1sec)
+RepeatedTimer(0.9, tick1sec)

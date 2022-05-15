@@ -15,9 +15,9 @@ supported_sensors = {'AC', 'DI', 'TP', 'TI'}
 #####################################################################
 config_ctrigger={}
 config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
-config_ctrigger["DI"]={"use":"Y","mode":3,"st1high":60,"st1low":10,"bfsec":0,"afsec":1}
+config_ctrigger["DI"]={"use":"Y","mode":3,"st1high":700,"st1low":100,"bfsec":0,"afsec":1}
 config_ctrigger["TP"]={"use":"Y","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
-config_ctrigger["TI"]={"use":"Y","mode":3,"st1high":5,"st1low":-20,"bfsec":0,"afsec":1}
+config_ctrigger["TI"]={"use":"Y","mode":3,"st1high":5,"st1low":-5,"bfsec":0,"afsec":1}
 # saved for copy just in case
 #{"use":"Y","mode":1,"st1high":200,"st1low":-2000,"st2high":"","st2low":"","st3high":"","st4low":"","lt4high":"","st5low":"","st5high":"","st5low":"","bfsec":30,"afsec":60}
 
@@ -38,21 +38,21 @@ config_cmeasure['TI'].update(cmeasure2)  #deep copy
 
 
 info_manufacture={}
-info_manufacture['AC']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'MEMS','sensitivity':'20bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
-info_manufacture['DI']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2053','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'Wire-strain','sensitivity':'24bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
-info_manufacture['TP']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2054','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'CMOS','sensitivity':'12bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
-info_manufacture['TI']={'serial':'','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2055','website':'http://www.ino-on.com','model':'mgi-1000',
-    'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':''}
+info_manufacture['AC']={'serial':'T0000001','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
+    'sensortype':'MEMS','sensitivity':'20bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':'e45f014b363b'}
+info_manufacture['DI']={'serial':'T0000002','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
+    'sensortype':'Wire-strain','sensitivity':'24bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':'e45f014b363b'}
+info_manufacture['TP']={'serial':'T0000003','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
+    'sensortype':'CMOS','sensitivity':'12bit','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':'e45f014b363b'}
+info_manufacture['TI']={'serial':'T0000004','manufacturer':'Ino-on. Inc.','phonenumber':'02-336-2050','website':'http://www.ino-on.com','model':'mgi-1000',
+    'sensortype':'MEMS','sensitivity':'0.01º','opertemp':'-20~60℃','manufacturedate':'2022-04-19','fwver':'1.0','hwver':'1.0','hwtype':'D','mac':'e45f014b363b'}
 
 
 info_imeasure={}
-info_imeasure['AC']={'mode':'D','type':'AC','item':'가속도','range':'2G','precision':'0.01','accuracy':'0.01','meaunit':'mg','meaunit':'','direction':''}
-info_imeasure['DI']={'mode':'S','type':'DI','item':'변위','range':'','precision':'1','accuracy':'3','meaunit':'ustrain','meaunit':'','direction':''}
-info_imeasure['TP']={'mode':'S','type':'TP','item':'온도','range':'-40~+120','precision':'0.01','accuracy':'0.01','meaunit':'C','meaunit':'','direction':''}
-info_imeasure['TI']={'mode':'S','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','meaunit':'','direction':''}
+info_imeasure['AC']={'mode':'D','type':'AC','item':'가속도','range':'+-2G','precision':'0.01','accuracy':'0.01','meaunit':'mg','meaunit':'mg','direction':''}
+info_imeasure['DI']={'mode':'D','type':'DI','item':'변위','range':'0-500','precision':'1','accuracy':'3','meaunit':'ustrain','meaunit':'mm','direction':''}
+info_imeasure['TP']={'mode':'D','type':'TP','item':'온도','range':'-40~+120','precision':'0.01','accuracy':'0.01','meaunit':'C','meaunit':'℃','direction':''}
+info_imeasure['TI']={'mode':'D','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','meaunit':'º','direction':''}
 
 data_dtrigger={"time":"","step":"","mode":"","sthigh":"","stlow":"","val":"","start":"","samplerate":"","count":"","data":""}
 data_fft={"start":"","end":"","st1hz":"","st2hz":"","st3hz":"","st4hz":"","st5hz":"","st6hz":"","st7hz":"","st8hz":"","st9hz":"","st10hz":""}
@@ -109,7 +109,7 @@ cse={'name':'cse-gnrb-mon'}
 
 config_time={'zone':'GMT+9','mode':3,'ip':'time.nist.gov','port':80,'period':600} #600sec
 config_connect={'cseip':'218.232.234.232','cseport':7579,'csename':'cse-gnrb-mon','cseid':'cse-gnrb-mon','mqttip':'218.232.234.232','mqttport':1883,'uploadip':'218.232.234.232','uploadport':80}
-state={'battery':0,'memory':0,'disk':0,'cpu':0,'time':'yyyy-MM-dd HH:mm:ss.ffff','uptime':'0 days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
+state={'battery':4,'memory':10,'disk':10,'cpu':20,'time':'2022-05-16 09:01:01.0000','uptime':'0 days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
 
 ctrl={'cmd':''}
 # 'reset','reboot  synctime','fwupdate','realstart','realstop','reqstate','settrigger','settime','setmeasure','setconnect','measurestart','meaurestop'
@@ -119,12 +119,12 @@ ctrl={'cmd':''}
 ####   다음 섹션은 해당노드의 센서 정보 구성
 #####################################################################
 
-install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'S'}
+install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'D'}
 
-make_ae('ae.80061056-AC_SIM_01_X', install)
-#make_ae('ae.12345141-DI_SIM_01_X', install)
-#make_ae('ae.12345141-TP_SIM_01_X', install)
-#make_ae('ae.12345141-TI_SIM_01_X', install)
+make_ae('ae.32345141-AC_S1M_01_X', install)
+make_ae('ae.32345141-DI_S1M_01_X', install)
+make_ae('ae.32345141-TP_S1M_01_X', install)
+make_ae('ae.32345141-TI_S1M_01_X', install)
 
 
 FFT_data_acc = {
