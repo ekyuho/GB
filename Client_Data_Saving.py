@@ -655,6 +655,7 @@ def startup():
         create.allci(aename, {'config','info'})
         do_config({'aename':aename, 'cmd':'','save':'nosave'})
         mytimer.timer[aename]['data']= 3  # run at the beginning
+        mytimer.timer[aename]['state']= 6  # run at the beginning
 
 
 for aename in ae:
