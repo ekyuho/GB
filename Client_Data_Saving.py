@@ -242,7 +242,8 @@ def got_callback(topic, msg):
         print(f'response {resp_topic} {j["rqi"]}')
 
     else:
-        print(' ==> not for me', topic, msg[:20],'...')
+        #print(' ==> not for me', topic, msg[:20],'...')
+        pass
 
 
 
