@@ -420,7 +420,6 @@ def do_capture():
     global client_socket, mqtt_measure, time_old
     global worktodo, worktodo_param, session_active
     global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
-
     if not worktodo=="":
         print('call work to do')
         worktodo(worktodo_param)
@@ -464,8 +463,8 @@ def do_capture():
                     
                 trigger_in_progress[aename]=1
                 ctrigger=ae[aename]['config']['ctrigger']
-                cmeasure=ae[aename]['config']['cmeasure']
                 dtrigger=ae[aename]['data']['dtrigger']
+                cmeasure=ae[aename]['config']['cmeasure']
                 dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
                 dtrigger['start']=(now-timedelta(seconds=ctrigger['bfsec'])).strftime("%Y-%m-%d %H:%M:%S.%f") #[트리거 발생 당시 시각 - bfsec]의 시각
                 dtrigger['mode']=ctrigger['mode']
@@ -495,15 +494,13 @@ def do_capture():
                 dtrigger['count'] = 1
 
                 data_list = list()
-                
-                
 
                 if sensor_type(aename) == "DI":
-                    data_list.append(jsonData["Displacement"][dis_channel])
+                    data_list.append(jsonData["Displacement"][dis_channel]+cmeasure['offset'])
                 elif sensor_type(aename) == "TP":
-                    data_list.append(jsonData["Temperature"])
+                    data_list.append(jsonData["Temperature"]+cmeasure['offset'])
                 elif sensor_type(aename) == "TI":
-                    data_list.append(jsonData["Degree"][deg_axis])
+                    data_list.append(jsonData["Degree"][deg_axis]+cmeasure['offset']) # offset이 있는 경우, 합쳐주어야한다
                 else:
                     data_list.append("nope")
 
@@ -514,23 +511,43 @@ def do_capture():
                 print("trigger data has sent")
                 
 
-
     time_old=now
     if not "Timestamp" in jsonData:
         print(f'****** no Timestamp  {jsonData}')
         return
 
+    offset_dict = {
+        "AC":0,
+        "DI":0,
+        "TP":0,
+        "TI":0
+    }
+
+    for aename in ae:
+
+        cmeasure=ae[aename]['config']['cmeasure']
+        type = sensor_type(aename)
+
+        if type == 'TP' and 'offset' in cmeasure:
+            offset_dict["TP"] = cmeasure['offset']
+        elif type == 'DI' and 'offset' in cmeasure:
+            offset_dict["DI"] = cmeasure['offset']
+        elif type == "AC" and 'offset' in cmeasure:
+            offset_dict["AC"] = cmeasure['offset']
+        elif type == "TI" and 'offset' in cmeasure:
+            offset_dict["TI"] = cmeasure['offset']
+
     Time_data = jsonData["Timestamp"]
-    Temperature_data = jsonData["Temperature"]
-    Displacement_data = jsonData["Displacement"][dis_channel]
+    Temperature_data = jsonData["Temperature"] + offset_dict["TP"]
+    Displacement_data = jsonData["Displacement"][dis_channel] + offset_dict["DI"]
     
     acc_list = list()
     str_list = list()
     
     for i in range(len(jsonData["Acceleration"])):
-        acc_list.append(jsonData["Acceleration"][i][acc_axis])
+        acc_list.append(jsonData["Acceleration"][i][acc_axis] + offset_dict["AC"])
     for i in range(len(jsonData["Strain"])):
-        str_list.append(jsonData["Strain"][i][str_axis])
+        str_list.append(jsonData["Strain"][i][str_axis]) #offset 기능 구현되어있지 않음
 
     #samplerate에 따라 파일에 저장되는 data 조정
     #현재 가속도 센서에만 적용중
@@ -559,7 +576,7 @@ def do_capture():
 
     Acceleration_data = acc_list
     Strain_data = str_list
-    Degree_data = jsonData["Degree"][deg_axis]
+    Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]
     
     # 센서의 특성을 고려해 각 센서 별로 센서 data를 담은 dict 생성
     Degree_json = jsonCreate("Degree", Time_data, Degree_data)
