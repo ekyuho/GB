@@ -1,9 +1,8 @@
 # File_Merge.py
 # 1초단위의 데이터들을 생성시각에 따라, rawperiod에 기반해 하나의 data로 묶어 저장합니다.
 # 파일의 생성시각을 읽어오는 방식을 사용하고 있어 개선이 필요합니다.
-# 현재 delay에 의한 데이터 누락에 대한 대책이 없음. raw_*.py처럼 last_timestamp를 백업해두고 사용하는 방식이 제일 용이해보임. conf.py에 백업하는 게 좋을까요?
-# 추후 통합한 파일을 http file server에 자연스럽게 전송하면 되지 않을까... 하고 생각 중.
-# 비슷한 원리로 파일 정리 시스템도 만들 예정(초단위 데이터 청소)
+# 현재 delay에 의한 데이터 누락에 대한 대책이 없음.
+# 0513 추가 : http file server에 묶어 저장한 데이터를 전송하는 기능도 수행중입니다. 
 
 
 from calendar import c
@@ -24,21 +23,29 @@ root = conf.root
 connect = conf.config_connect
 
 host = connect["uploadip"]
-port = 2883 # 통일성을 위해 추후 port = connect["uploadport"]로 바꿔야할듯합니다만, uploadport의 기본값이 건기연 서버의 포트와 달라(80) 임시로 상수를 입력해두었습니다.
-
-path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree'}
+port = connect["uploadport"] # 통일성을 위해 추후 port = connect["uploadport"]로 바꿔야할듯합니다만, uploadport의 기본값이 건기연 서버의 포트와 달라(80) 임시로 상수를 입력해두었습니다.
 
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
 
 # 통합할 파일 list 작성
-def filepath_list(stype, rawperiod): # 가장 최근 rawperiod간의 파일을 뽑는다
-    raw_path = F"{root}/raw_data/{path[stype]}"
+def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 뽑는다
+    raw_path = F"{root}/raw_data"
+    if aename == "AC" :
+        raw_path+="/Acceleration"
+    elif aename == "DI" :
+        raw_path+="/Displacement"
+    elif aename == "TP" :
+        raw_path+="/Temperature"
+    elif aename == "TI" :
+        raw_path+="/Degree"
+    else :
+        print("aename error")
+        return
 
     file_list = os.listdir(raw_path)
     present_time = time.time()
     data_path_list = list()
-    print(f'raw_path= {raw_path}')
     for i in range (len(file_list)):
         file_time = os.path.getmtime(raw_path+'/'+file_list[i])
         time_gap = present_time-file_time
@@ -48,18 +55,29 @@ def filepath_list(stype, rawperiod): # 가장 최근 rawperiod간의 파일을 �
     data_path_list.sort()
     return data_path_list
 
-def file_save(stype, rawperiod):
-    save_path = F"{root}/merged_data/{path[stype]}"
+def file_save(aename, rawperiod):
+    save_path = F"{root}/merged_data"
+    if aename == "AC" :
+        save_path+="/Acceleration"
+    elif aename == "DI" :
+        save_path+="/Displacement"
+    elif aename == "TP" :
+        save_path+="/Temperature"
+    elif aename == "TI" :
+        save_path+="/Degree"
+    else :
+        print("aename error")
+        return
     
     #통합 데이터를 저장할 디렉토리가 없다면 생성
     if not os.path.exists(save_path): os.makedirs(save_path)
 
     #통합할 데이터 list를 불러온다
-    print(f'save_path= {save_path}')
-    data_path_list = filepath_list(stype, rawperiod) 
+    data_path_list = filepath_list(aename, rawperiod) 
 
     if len(data_path_list) == 0:
         print("no data to merge") #통합할 데이터가 전혀 없는 경우, 통합을 수행하지 않음
+        print("waiting...")
         return
 
     empty_list = list() # time, data값이 dict 형태로 삽입될 배열
@@ -88,24 +106,22 @@ def file_save(stype, rawperiod):
             
 
     now = datetime.now()
-    file_name = stype+now.strftime("-%Y%m%d%H%M")
+    file_name = aename+now.strftime("-%Y%m%d%H%M")
     with open (F"{save_path}/inoon-{file_name}", "w") as f:
-        json.dump(merged_file, f, indent=4)
+        json.dump(merged_file, f, indent=4) # 통합 data 저장. 분단위까지 파일명에 기록됩니다
 
     url = F"http://{host}:{port}/upload"
 
     r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/inoon-{file_name}", "rb")})
-    print("raw data upload in progress...")
-    print(f'got code= {r.status_code}')
+    print("raw data upload trying...")
     print(r.text)
         
 def doit():
     global ae
-    print(f'doit here, {ae.keys()}')
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
-        print(f'File_Merge rawperiod= {rawperiod}')
         file_save(sensor_type(aename), rawperiod)
     
-if __name__ == "__main__":
-    doit()
+    
+
+

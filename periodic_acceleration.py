@@ -111,6 +111,11 @@ def report(aename):
     else:
         data_list = np.array(data_list)
         dmeasure = {}
+        with open(path_list[len(path_list)-1]) as f:
+            json_data = json.load(f)
+            end_time = json_data["time"]
+        dmeasure['type'] = "D"
+        dmeasure['time'] = end_time
         dmeasure['min'] = np.min(data_list)
         dmeasure['max']= np.max(data_list)
         dmeasure['avg'] = np.average(data_list)

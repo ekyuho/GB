@@ -1,6 +1,4 @@
 # Client_Data_Saving.py
-# date : 2022-04-28
-# 작성자 : ino-on, 주수아
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
@@ -295,7 +293,7 @@ def mqtt_sending(aename, data):
         count = 1
     BODY = {
         "start":now.strftime("%Y-%m-%d %H:%M:%S.%f"),
-        "samplerate":int(ae[aename]["config"]["cmeasure"]['samplerate']),
+        "samplerate":ae[aename]["config"]["cmeasure"]['samplerate'],
         "count":count,
         "data":data
         }
@@ -460,7 +458,8 @@ def do_capture():
                 continue
 
             if sensor_type(aename) == "AC": # 동적 데이터의 경우, 트리거 전초와 후초를 고려해 전송 시행
-                    
+                trigger_list = jsonData["Acceleration"]
+                trigger_data = "unknown"
                 trigger_in_progress[aename]=1
                 ctrigger=ae[aename]['config']['ctrigger']
                 dtrigger=ae[aename]['data']['dtrigger']
@@ -471,7 +470,19 @@ def do_capture():
                 dtrigger['sthigh']=ctrigger['st1high']
                 dtrigger['stlow']=ctrigger['st1low']
                 dtrigger['samplerate']=cmeasure['samplerate']
-                #dtrigger['val']=1
+                dtrigger['step']=1
+                for ac in trigger_list:
+                    if ctrigger['mode'] == 1 and ac[acc_axis] > dtrigger['sthigh']:
+                        trigger_data = ac[acc_axis]
+                    elif ctrigger['mode'] == 2 and ac[acc_axis] < dtrigger['stlow']:
+                        trigger_data = ac[acc_axis]
+                    elif ctrigger['mode'] == 3:
+                        if ac[acc_axis] > ctrigger['sthigh'] and ac[acc_axis] < dtrigger['stlow']:
+                            trigger_data = ac[acc_axis]
+                    elif ctrigger['mode'] == 4:
+                        if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
+                            trigger_data = ac[acc_axis]
+                dtrigger['val'] = trigger_data
 
                 print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
                 if int(ctrigger['afsec']) and ctrigger['afsec']>0:
@@ -492,19 +503,22 @@ def do_capture():
                 dtrigger['stlow']=ctrigger['st1low']
                 dtrigger['samplerate']=cmeasure['samplerate']
                 dtrigger['count'] = 1
-
-                data_list = list()
+                dtrigger['step']=1
+                del dtrigger['data']
+                
+                data = 0
 
                 if sensor_type(aename) == "DI":
-                    data_list.append(jsonData["Displacement"][dis_channel]+cmeasure['offset'])
+                    
+                    data = jsonData["Displacement"][dis_channel]+cmeasure['offset']
                 elif sensor_type(aename) == "TP":
-                    data_list.append(jsonData["Temperature"]+cmeasure['offset'])
+                    data = jsonData["Temperature"]+cmeasure['offset']
                 elif sensor_type(aename) == "TI":
-                    data_list.append(jsonData["Degree"][deg_axis]+cmeasure['offset']) # offset이 있는 경우, 합쳐주어야한다
+                    data = jsonData["Degree"][deg_axis]+cmeasure['offset'] # offset이 있는 경우, 합쳐주어야한다
                 else:
-                    data_list.append("nope")
+                    data = "nope"
 
-                dtrigger['data'] = data_list
+                dtrigger['val'] = data
                 print(f"got trigger {aename}")
                 print("trigger data uploading...")
                 create.ci(aename, "data", "dtrigger") # 정적 트리거 전송은 따로 do_trigger_followup을 실행하지 않는다.
@@ -552,10 +566,11 @@ def do_capture():
     #samplerate에 따라 파일에 저장되는 data 조정
     #현재 가속도 센서에만 적용중
     for aename in ae:
-        ae_samplerate = int(ae[aename]["config"]["cmeasure"]["samplerate"])
         # acceleration의 경우, samplerate가 100이 아닌 경우에 대처한다
-        if sensor_type(aename)=="AC" and ae_samplerate != 100:
-            if 100%ae_samplerate != 0 : #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
+        if sensor_type(aename)=="AC":
+            ae_samplerate = float(ae[aename]["config"]["cmeasure"]["samplerate"])
+            if ae_samplerate != 100 and 100%ae_samplerate != 0:
+                #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
                 print("wrong samplerate config")
                 print("apply standard samplerate = 100")
                 ae_samplerate = 100
@@ -648,7 +663,9 @@ def do_periodic_data():
                 periodic_acceleration.report(aename)
             else:
                 dmeasure = {}
-                dmeasure['val'] = last_sensor_value[aename][stype]
+                dmeasure['type'] = "S"
+                dmeasure['time'] = last_sensor_value[aename][stype]["time"]
+                dmeasure['val'] = last_sensor_value[aename][stype]["data"]
                 ae[aename]['data']['dmeasure'] = dmeasure
                 create.ci(aename, 'data', 'dmeasure')
 
@@ -720,4 +737,4 @@ for aename in ae:
 print('Ready')
 Timer(10, startup).start()
 # every 1.0 sec
-RepeatedTimer(0.9, tick1sec)
+RepeatedTimer(1, tick1sec)
