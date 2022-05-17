@@ -117,6 +117,7 @@ def file_save(aename, rawperiod):
     print(r.text)
         
 def doit():
+    global ae
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
         file_save(sensor_type(aename), rawperiod)
