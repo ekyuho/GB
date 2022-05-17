@@ -101,6 +101,7 @@ def file_save(stype, rawperiod):
         
 def doit():
     global ae
+    print(f'doit here, {ae.keys()}')
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
         print(f'File_Merge rawperiod= {rawperiod}')
