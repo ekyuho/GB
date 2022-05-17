@@ -49,7 +49,7 @@ def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 
     for i in range (len(file_list)):
         file_time = os.path.getmtime(raw_path+'/'+file_list[i])
         time_gap = present_time-file_time
-        if time_gap <= rawperiod: # rawperiod에 따라 data를 수집한다. 기본값 60분
+        if time_gap <= rawperiod*60: # rawperiod에 따라 data를 수집한다. 기본값 60분
             data_path_list.append(raw_path+'/'+file_list[i])
             #print(file_list[i])
     data_path_list.sort()
