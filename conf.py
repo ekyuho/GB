@@ -108,7 +108,7 @@ port=1883
 cse={'name':'cse-gnrb-mon'}
 
 config_time={'zone':'GMT+9','mode':3,'ip':'time.nist.gov','port':80,'period':600} #600sec
-config_connect={'cseip':'218.232.234.232','cseport':7579,'csename':'cse-gnrb-mon','cseid':'cse-gnrb-mon','mqttip':'218.232.234.232','mqttport':1883,'uploadip':'218.232.234.232','uploadport':80}
+config_connect={'cseip':'218.232.234.232','cseport':7579,'csename':'cse-gnrb-mon','cseid':'cse-gnrb-mon','mqttip':'218.232.234.232','mqttport':1883,'uploadip':'218.232.234.232','uploadport':2883}
 state={'battery':4,'memory':10,'disk':10,'cpu':20,'time':'2022-05-16 09:01:01.0000','uptime':'0 days, 13:29:34','abflag':'N','abtime':'','abdesc':'','solarinputvolt':0,'solarinputamp':0,'solarchargevolt':0,'powersupply':0}
 
 ctrl={'cmd':''}
@@ -118,28 +118,15 @@ ctrl={'cmd':''}
 #####################################################################
 ####   다음 섹션은 해당노드의 센서 정보 구성
 #####################################################################
-
-install= {'date':'2022-04-25','place':'금남2교(하)','plccecode':'25731','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'D'}
-
-
-make_ae('ae.11110000-AC_S1M_01_X', install)
-#make_ae('ae.32345141-DI_S1M_01_X', install)
-#make_ae('ae.11110000-TP_S1M_01_X', install)
-make_ae('ae.11110000-TI_S1M_01_X', install)
+bridge = 11110000 #placecode 설정을 위해 변수로 재설정
+install= {'date':'2022-04-25','place':'금남2교(하)','placecode':F'{bridge}','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'D'}
 
 
-FFT_data_acc = {
-    "use":"Y",
-    "st1min":2.1,
-    "st1max":2.6
-    }
+make_ae(F'ae.{bridge}-AC_S1M_01_X', install)
+#make_ae(F'ae.{bridge}-DI_S1M_01_X', install)
+#make_ae(F'ae.{bridge}-TP_S1M_01_X', install)
+make_ae(F'ae.{bridge}-TI_S1M_01_X', install)
 
-FFT_data_str = {
-    "use":"N",
-    "st1min":2.1,
-    "st1max":2.6
-    }
-    
 if os.path.exists(F"{root}/config.dat"): 
     print('read from config.dat')
     with open(F"{root}/config.dat") as f:
