@@ -49,10 +49,10 @@ info_manufacture['TI']={'serial':'T0000004','manufacturer':'Ino-on. Inc.','phone
 
 
 info_imeasure={}
-info_imeasure['AC']={'mode':'D','type':'AC','item':'가속도','range':'+-2G','precision':'0.01','accuracy':'0.01','meaunit':'mg','meaunit':'mg','direction':''}
-info_imeasure['DI']={'mode':'D','type':'DI','item':'변위','range':'0-500','precision':'1','accuracy':'3','meaunit':'ustrain','meaunit':'mm','direction':''}
-info_imeasure['TP']={'mode':'D','type':'TP','item':'온도','range':'-40~+120','precision':'0.01','accuracy':'0.01','meaunit':'C','meaunit':'℃','direction':''}
-info_imeasure['TI']={'mode':'D','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','meaunit':'º','direction':''}
+info_imeasure['AC']={'mode':'D','type':'AC','item':'가속도','range':'+-2G','precision':'0.01','accuracy':'0.01','meaunit':'mg','conunit':'mg','direction':'X'}
+info_imeasure['DI']={'mode':'D','type':'DI','item':'변위','range':'0-500','precision':'1','accuracy':'3','meaunit':'ustrain','conunit':'mm','direction':'X'}
+info_imeasure['TP']={'mode':'D','type':'TP','item':'온도','range':'-40~+120','precision':'0.01','accuracy':'0.01','meaunit':'C degree','conunit':'C degree','direction':'X'}
+info_imeasure['TI']={'mode':'D','type':'TI','item':'경사(각도)','range':'0~90','precision':'0.01','accuracy':'0.01','meaunit':'degree','conunit':'degree','direction':'X'}
 
 data_dtrigger={"time":"","step":"","mode":"","sthigh":"","stlow":"","val":"","start":"","samplerate":"","count":"","data":""}
 data_fft={"start":"","end":"","st1hz":"","st2hz":"","st3hz":"","st4hz":"","st5hz":"","st6hz":"","st7hz":"","st8hz":"","st9hz":"","st10hz":""}
