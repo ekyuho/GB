@@ -504,12 +504,10 @@ def do_capture():
                 dtrigger['samplerate']=cmeasure['samplerate']
                 dtrigger['count'] = 1
                 dtrigger['step']=1
-                del dtrigger['data']
                 
                 data = 0
 
                 if sensor_type(aename) == "DI":
-                    
                     data = jsonData["Displacement"][dis_channel]+cmeasure['offset']
                 elif sensor_type(aename) == "TP":
                     data = jsonData["Temperature"]+cmeasure['offset']
@@ -562,33 +560,36 @@ def do_capture():
         acc_list.append(jsonData["Acceleration"][i][acc_axis] + offset_dict["AC"])
     for i in range(len(jsonData["Strain"])):
         str_list.append(jsonData["Strain"][i][str_axis]) #offset 기능 구현되어있지 않음
-
+        
+    #print(F"acc : {acc_list}")
     #samplerate에 따라 파일에 저장되는 data 조정
     #현재 가속도 센서에만 적용중
     for aename in ae:
         # acceleration의 경우, samplerate가 100이 아닌 경우에 대처한다
         if sensor_type(aename)=="AC":
             ae_samplerate = float(ae[aename]["config"]["cmeasure"]["samplerate"])
-            if ae_samplerate != 100 and 100%ae_samplerate != 0:
-                #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
-                print("wrong samplerate config")
-                print("apply standard samplerate = 100")
-                ae_samplerate = 100
-            new_acc_list = list()
-            merged_value = 0
-            merge_count = 0
-            sample_number = 100//ae_samplerate
-            for i in range(len(acc_list)):
-                merged_value += acc_list[i]
-                merge_count += 1
-                if merge_count == sample_number:
-                    new_acc_list.append(round(merged_value/sample_number, 2))
-                    merge_count = 0
-            acc_list = new_acc_list
+            if ae_samplerate != 100:
+                if 100%ae_samplerate != 0:
+                    #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
+                    print("wrong samplerate config")
+                    print("apply standard samplerate = 100")
+                    ae_samplerate = 100
+                new_acc_list = list()
+                merged_value = 0
+                merge_count = 0
+                sample_number = 100//ae_samplerate
+                for i in range(len(acc_list)):
+                    merged_value += acc_list[i]
+                    merge_count += 1
+                    if merge_count == sample_number:
+                        new_acc_list.append(round(merged_value/sample_number, 2))
+                        merge_count = 0
+                        merged_value = 0
+                acc_list = new_acc_list
             #print("samplerate calculation end")
             #print(acc_list)
         
-
+    print(F"acc : {acc_list}")
     Acceleration_data = acc_list
     Strain_data = str_list
     Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]

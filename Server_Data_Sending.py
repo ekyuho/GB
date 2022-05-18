@@ -315,6 +315,7 @@ def data_receiving():
             #strain_list.append([sx, sy, sz])           
 
         json_data["Acceleration"] = acc_list
+        print(acc_list)
         json_data["Strain"] = strain_list
         time.sleep(d2)
         console_msg += F" trigger= {json_data['trigger']}"
