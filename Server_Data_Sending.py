@@ -253,7 +253,7 @@ def data_receiving():
         json_data = {}
         #print("data is ready")
         status = basic_conversion(rcv2[2:4]) #status info save
-        timestamp = time_conversion(int(basic_conversion(rcv2[4:8]),16)) #timestamp info save. 현재 유효한 timestamp 연산을 하고 있지 않습니다.
+        timestamp = time_conversion(int(basic_conversion(rcv2[4:8]),16)) #timestamp info save.
         json_data["Timestamp"] = timestamp
         #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
         json_data["trigger"] = status_trigger_return(status)

@@ -2,7 +2,7 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
-VERSION='2.2 2022-05-17 09:53'
+VERSION='2-2_20220518_1535'
 print('\n===========')
 print(f'Verion {VERSION}')
 
@@ -91,7 +91,7 @@ def connect():
         except:
             print('got no connection')
             return 'no'
-        print("socket 연결에 성공했습니다.")
+        print("socket pi연결에 성공했습니다.")
     return "yes"
 
 if connect()=='no':
@@ -358,22 +358,27 @@ def do_config(param):
 
 def do_trigger_followup(aename):
     global ae
+    global jsonData
     print(f'trigger_followup {aename}')
     trigger_in_progress[aename]=0
     dtrigger=ae[aename]['data']['dtrigger']
+    stype = sensor_type(aename)
 
     def find_pathlist():
         global ae
         ctrigger = ae[aename]['config']['ctrigger']
         path = F"{root}/raw_data/Acceleration"
         file_list = os.listdir(path)
-        present_time = time.time()
+        present_time = datetime.strptime(last_sensor_value[aename][stype]["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #가장 최근 파일의 timestamp 확인
         data_path_list = list()
         for i in range (len(file_list)):
-            file_time = os.path.getmtime(path+'/'+file_list[i])
+            with open (path+'/'+file_list[i], "rb") as f:
+                file_json = json.loads(f.read().decode('utf_8'))
+                file_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #모든 파일의 timestamp를 확인한다
+            #file_time = os.path.getmtime(path+'/'+file_list[i]) # 데이터 생성시각 기준
             time_gap = present_time-file_time
-            if time_gap <= ctrigger['afsec']+ctrigger['bfsec']: # 데이터 생성시각을 기준으로 데이터 수집중. 
-                data_path_list.append(path+'/'+file_list[i])
+            if time_gap <= ctrigger['afsec']+ctrigger['bfsec']: 
+                data_path_list.append(path+'/'+file_list[i]) # 전초+후초 기간 내에 측정된 데이터라면 pathlist에 추가
                 #print(file_list[i])
         data_path_list.sort()
         return data_path_list
@@ -393,11 +398,8 @@ def do_trigger_followup(aename):
                 data_list.append(one_file["data"][i])
 
         return data_list
-    #아래의  function을 만들어야 합니다
     
     data = merge_data(find_pathlist())
-    #data= merge_data(dtrigger['start'])
-    #data=[1,2,3,4,5]
 
     dtrigger['count']=len(data)
     dtrigger['data']=data
@@ -465,7 +467,6 @@ def do_capture():
                 dtrigger=ae[aename]['data']['dtrigger']
                 cmeasure=ae[aename]['config']['cmeasure']
                 dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
-                dtrigger['start']=(now-timedelta(seconds=ctrigger['bfsec'])).strftime("%Y-%m-%d %H:%M:%S.%f") #[트리거 발생 당시 시각 - bfsec]의 시각
                 dtrigger['mode']=ctrigger['mode']
                 dtrigger['sthigh']=ctrigger['st1high']
                 dtrigger['stlow']=ctrigger['st1low']
@@ -482,14 +483,17 @@ def do_capture():
                     elif ctrigger['mode'] == 4:
                         if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
-                dtrigger['val'] = trigger_data
-
-                print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
-                if int(ctrigger['afsec']) and ctrigger['afsec']>0:
-                    Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start()
-                    print(f"set trigger followup in {ctrigger['afsec']} sec")
+                if trigger_data == "unknown":
+                    print("there is no trigger value")
+                    print("trigger data upload has cancelled")
                 else:
-                    print(f"invalid afsec= {ctrigger['afsec']}")
+                    dtrigger['val'] = trigger_data
+                    print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+                    if int(ctrigger['afsec']) and ctrigger['afsec']>0:
+                        Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
+                        print(f"set trigger followup in {ctrigger['afsec']} sec")
+                    else:
+                        print(f"invalid afsec= {ctrigger['afsec']}")
             
             else: # 정적 데이터의 경우, 트리거 발생 당시의 데이터를 전송한다
 
@@ -504,12 +508,10 @@ def do_capture():
                 dtrigger['samplerate']=cmeasure['samplerate']
                 dtrigger['count'] = 1
                 dtrigger['step']=1
-                del dtrigger['data']
                 
                 data = 0
 
                 if sensor_type(aename) == "DI":
-                    
                     data = jsonData["Displacement"][dis_channel]+cmeasure['offset']
                 elif sensor_type(aename) == "TP":
                     data = jsonData["Temperature"]+cmeasure['offset']
@@ -517,6 +519,8 @@ def do_capture():
                     data = jsonData["Degree"][deg_axis]+cmeasure['offset'] # offset이 있는 경우, 합쳐주어야한다
                 else:
                     data = "nope"
+
+                #정말로 val값이 trigger를 만족시키는지 check해야함. 추후 추가.
 
                 dtrigger['val'] = data
                 print(f"got trigger {aename}")
@@ -562,33 +566,35 @@ def do_capture():
         acc_list.append(jsonData["Acceleration"][i][acc_axis] + offset_dict["AC"])
     for i in range(len(jsonData["Strain"])):
         str_list.append(jsonData["Strain"][i][str_axis]) #offset 기능 구현되어있지 않음
-
+        
+    #print(F"acc : {acc_list}")
     #samplerate에 따라 파일에 저장되는 data 조정
     #현재 가속도 센서에만 적용중
     for aename in ae:
         # acceleration의 경우, samplerate가 100이 아닌 경우에 대처한다
         if sensor_type(aename)=="AC":
             ae_samplerate = float(ae[aename]["config"]["cmeasure"]["samplerate"])
-            if ae_samplerate != 100 and 100%ae_samplerate != 0:
-                #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
-                print("wrong samplerate config")
-                print("apply standard samplerate = 100")
-                ae_samplerate = 100
-            new_acc_list = list()
-            merged_value = 0
-            merge_count = 0
-            sample_number = 100//ae_samplerate
-            for i in range(len(acc_list)):
-                merged_value += acc_list[i]
-                merge_count += 1
-                if merge_count == sample_number:
-                    new_acc_list.append(round(merged_value/sample_number, 2))
-                    merge_count = 0
-            acc_list = new_acc_list
+            if ae_samplerate != 100:
+                if 100%ae_samplerate != 0:
+                    #100의 약수가 아닌 samplerate가 설정되어있는 경우, 오류가 발생한다
+                    print("wrong samplerate config")
+                    print("apply standard samplerate = 100")
+                    ae_samplerate = 100
+                new_acc_list = list()
+                merged_value = 0
+                merge_count = 0
+                sample_number = 100//ae_samplerate
+                for i in range(len(acc_list)):
+                    merged_value += acc_list[i]
+                    merge_count += 1
+                    if merge_count == sample_number:
+                        new_acc_list.append(round(merged_value/sample_number, 2))
+                        merge_count = 0
+                        merged_value = 0
+                acc_list = new_acc_list
             #print("samplerate calculation end")
             #print(acc_list)
         
-
     Acceleration_data = acc_list
     Strain_data = str_list
     Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]

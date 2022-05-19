@@ -30,12 +30,12 @@ config_json = {
   "cmd": "setmeasure",
   "cmeasure": {
   "sensitivity": 20,
-  "samplerate": "1/300",
-  "usefft": "N",
+  "samplerate": "100",
+  "usefft": "Y",
   "offset": 0,
-  "measureperiod": 600,
+  "measureperiod": 300,
   "stateperiod": 60,
-  "rawperiod": 60,
+  "rawperiod": 10,
   "st1min": 2.1,
   "st1max": 2.6
   }
@@ -54,4 +54,4 @@ config_json = {
   }
 '''
 
-actuate("ae.11110000-TI_S1M_01_X", config_json)
+actuate("ae.11110000-AC_S1M_01_X", config_json)
