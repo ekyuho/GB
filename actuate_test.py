@@ -31,11 +31,10 @@ config_json = {
   "cmeasure": {
   "sensitivity": 20,
   "samplerate": "100",
-  "usefft": "N",
-  "offset": 0,
-  "measureperiod": 600,
+  "usefft": "Y",
+  "measureperiod": 300,
   "stateperiod": 60,
-  "rawperiod": 60,
+  "rawperiod": 10,
   "st1min": 2.1,
   "st1max": 2.6
   }

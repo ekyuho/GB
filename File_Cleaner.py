@@ -50,7 +50,7 @@ def file_clean(stype, cleanperiod):
 def doit():
     global ae
     for aename in ae:
-        cleanperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]+1 #rawperiod보다 1분 더 여유를 두고 삭제 작업을 진행
+        cleanperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]+5 #rawperiod보다 5분 더 여유를 두고 삭제 작업을 진행
         file_clean(sensor_type(aename), cleanperiod)
 
 if __name__ == "__main__":

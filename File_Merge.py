@@ -55,15 +55,15 @@ def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 
     data_path_list.sort()
     return data_path_list
 
-def file_save(aename, rawperiod):
+def file_save(aename, aetype, rawperiod):
     save_path = F"{root}/merged_data"
-    if aename == "AC" :
+    if aetype == "AC" :
         save_path+="/Acceleration"
-    elif aename == "DI" :
+    elif aetype == "DI" :
         save_path+="/Displacement"
-    elif aename == "TP" :
+    elif aetype == "TP" :
         save_path+="/Temperature"
-    elif aename == "TI" :
+    elif aetype == "TI" :
         save_path+="/Degree"
     else :
         print("aename error")
@@ -73,7 +73,7 @@ def file_save(aename, rawperiod):
     if not os.path.exists(save_path): os.makedirs(save_path)
 
     #통합할 데이터 list를 불러온다
-    data_path_list = filepath_list(aename, rawperiod) 
+    data_path_list = filepath_list(aetype, rawperiod) 
 
     if len(data_path_list) == 0:
         print("no data to merge") #통합할 데이터가 전혀 없는 경우, 통합을 수행하지 않음
@@ -106,13 +106,13 @@ def file_save(aename, rawperiod):
             
 
     now = datetime.now()
-    file_name = aename+now.strftime("-%Y%m%d%H%M")
-    with open (F"{save_path}/inoon-{file_name}", "w") as f:
+    file_name = aename+now.strftime(F"%Y%m%d%H%M_{aename}")
+    with open (F"{save_path}/{file_name}.bin", "w") as f:
         json.dump(merged_file, f, indent=4) # 통합 data 저장. 분단위까지 파일명에 기록됩니다
 
     url = F"http://{host}:{port}/upload"
 
-    r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/inoon-{file_name}", "rb")})
+    r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/{file_name}.bin", "rb")})
     print("raw data upload trying...")
     print(r.text)
         
@@ -120,7 +120,7 @@ def doit():
     global ae
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
-        file_save(sensor_type(aename), rawperiod)
+        file_save(aename, sensor_type(aename), rawperiod)
     
     
 

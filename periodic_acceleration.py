@@ -32,10 +32,17 @@ root=conf.root
 def find_pathlist(cmeasure):
     path = F"{root}/raw_data/Acceleration"
     file_list = os.listdir(path)
-    present_time = time.time()
+    file_list.sort() # 가장 옛 파일이 가장 첫번째에 자리한다
+    with open(F"{path}/{file_list[len(file_list)-1]}", "rb") as f: # 가장 최근 파일을 불러온다
+        file_json = json.loads(f.read().decode('utf_8'))
+        present_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #가장 최근 파일의 timestamp를 적용
+    #present_time = time.time()
     data_path_list = list()
     for i in range (len(file_list)):
-        file_time = os.path.getmtime(path+'/'+file_list[i])
+        with open (path+'/'+file_list[i], "rb") as f:
+            file_json = json.loads(f.read().decode('utf_8'))
+            file_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #모든 파일의 timestamp를 확인
+        #file_time = os.path.getmtime(path+'/'+file_list[i])
         time_gap = present_time-file_time
         if time_gap <= cmeasure["measureperiod"]: # 추후 데이터 수집 범위 10분으로 고정 예정
             data_path_list.append(path+'/'+file_list[i])
@@ -111,11 +118,11 @@ def report(aename):
     else:
         data_list = np.array(data_list)
         dmeasure = {}
-        with open(path_list[len(path_list)-1]) as f:
+        with open(path_list[0]) as f:
             json_data = json.load(f)
-            end_time = json_data["time"]
+            start_time = json_data["time"]
         dmeasure['type'] = "D"
-        dmeasure['time'] = end_time
+        dmeasure['time'] = start_time
         dmeasure['min'] = np.min(data_list)
         dmeasure['max']= np.max(data_list)
         dmeasure['avg'] = np.average(data_list)
