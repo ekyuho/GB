@@ -23,8 +23,6 @@ from datetime import datetime, timedelta
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
-import MyTimer
-mytimer= MyTimer.MyTimer()
 
 import versionup
 import periodic_state
@@ -129,7 +127,6 @@ def save_conf():
 
 def do_user_command(aename, jcmd):
     global ae, worktodo, worktodo_param
-    global mytimer
     cmd=jcmd['cmd']
     if 'reset' in cmd:
         file=f"{root}/config.dat"
@@ -167,10 +164,10 @@ def do_user_command(aename, jcmd):
         print(f'set cmeasure= {jcmd["cmeasure"]}')
         for x in jcmd["cmeasure"]:
             ae[aename]["config"]["cmeasure"][x]= jcmd["cmeasure"][x]
-        if "measureperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'data', cmeasure['measureperiod'])
-        if "stateperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'state', cmeasure['stateperiod'])
-        if "rawperiod" in jcmd["cmeasure"]: mytimer.set(aename, 'file', cmeasure['rawperiod'])
         save_conf()
+        if "measureperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_data')
+        if "stateperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_state')
+        if "rawperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_file')
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
         ae[aename]["config"]["time"]= jcmd["time"]
@@ -188,16 +185,7 @@ def do_user_command(aename, jcmd):
         ae[aename]['local']['measurestart']='N'
         print(f"set measurestart= {ae[aename]['local']['measurestart']}")
     elif cmd == 'inoon':
-        print(f'cmd onoon {jcmd["cmd2"]}')
-        if jcmd["cmd2"] == 'data': mytimer.expired[aename]['data']= True  # run at the beginning
-        if jcmd["cmd2"] == 'file': mytimer.expired[aename]['file']= True  # run at the beginning
-        if jcmd["cmd2"] == 'state': mytimer.expired[aename]['state']= True  # run at the beginning
-        if jcmd["cmd2"] == 'printtick': 
-            ae[aename]['local']['printtick']='Y'
-            print(f"set printtick= {ae[aename]['local']['printtick']}")
-        if jcmd["cmd2"] == 'printnotick': 
-            ae[aename]['local']['printtick']='N'
-            print(f"set printtick= {ae[aename]['local']['printtick']}")
+        pass
     else:
         print(f'invalid cmd {jcmd}')
         
@@ -448,7 +436,7 @@ def do_capture():
 
     session_active=True
     if jsonData["Status"] == "False":
-        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec')
+        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec from last error')
         time_old=now
         return
     
@@ -529,7 +517,6 @@ def do_capture():
                 print("trigger data has sent")
                 
 
-    time_old=now
     if not "Timestamp" in jsonData:
         print(f'****** no Timestamp  {jsonData}')
         return
@@ -645,59 +632,6 @@ def do_capture():
 
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
-# handles periodic measure (fft for AC)
-def do_periodic_data():
-    global ae, mytimer
-    for aename in ae: 
-        if mytimer.ring(aename, 'data'):
-            if ae[aename]['local']['measurestart']=='N':  # measure is controlled from remote user
-                print('measurestart==N, skip periodic data sending')
-                continue
-
-            print(f'periodic_data: got expiration')
-            if not aename in last_sensor_value:
-                print('do_periodic_data: no data, skip')
-                continue
-
-            stype = sensor_type(aename)
-            if not stype in last_sensor_value[aename]:
-                print(f'do_periodic_data: PANIC {aename} {last_sensor_value[aename]}')
-                return
-            print(f'do_measure {aename}')
-            if stype=='AC': 
-                periodic_acceleration.report(aename)
-            else:
-                dmeasure = {}
-                dmeasure['type'] = "S"
-                dmeasure['time'] = last_sensor_value[aename][stype]["time"]
-                dmeasure['val'] = last_sensor_value[aename][stype]["data"]
-                ae[aename]['data']['dmeasure'] = dmeasure
-                create.ci(aename, 'data', 'dmeasure')
-
-def do_periodic_state():
-    global ae, mytimer
-    for aename in ae: 
-        if mytimer.ring(aename, 'state'):
-            print(f'periodic_state: got expiration')
-            create.ci(aename, 'state','')
-
-def do_periodic_file():
-    global ae, mytimer
-    for aename in ae: 
-        if mytimer.ring(aename, 'file'):
-            print(f'periodic_file: got expiration')
-            File_Merge.doit()
-            File_Cleaner.doit()
-	
-def tick1sec():
-    global mytimer
-    mytimer.update()
-    if ae[aename]['local']['printtick']=='Y': mytimer.current()
-    do_capture() # fetch sensor from board
-    do_periodic_data() # create ci at given interval
-    do_periodic_state() # state create ci at given interval
-    do_periodic_file()  # http upload at given interval
-
 
 def startup():
     global ae
@@ -706,40 +640,8 @@ def startup():
         ae[aename]['info']['manufacture']['fwver']=VERSION
         create.allci(aename, {'config','info'})
         do_config({'aename':aename, 'cmd':'','save':'nosave'})
-        mytimer.timer[aename]['data']= 6  # run at the beginning
-        mytimer.timer[aename]['state']= 3  # run at the beginning
-
-
-for aename in ae:
-    cmeasure=ae[aename]['config']['cmeasure']
-    print(f"cmeasure['stateperiod'] ={cmeasure['stateperiod']}")
-    if 'stateperiod' in cmeasure and isinstance(cmeasure['stateperiod'],int): 
-        mytimer.set(aename, 'state', cmeasure['stateperiod'])
-        print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min")
-    else: 
-        mytimer.set(aename, 'state', 60*60)  #default min
-        print(f"cmeasure.stateperiod= defaulted 60 min")
-
-    if 'measureperiod' in cmeasure and isinstance(cmeasure['measureperiod'],int): 
-        mytimer.set(aename, 'data', cmeasure['measureperiod'])
-        print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
-    else: 
-        mytimer.set(aename, 'data', 600)  #default sec
-        print(f"cmeasure.measureperiod= defaulted 600 sec") 
-
-    if 'rawperiod' in cmeasure and isinstance(cmeasure['rawperiod'],int): 
-        mytimer.set(aename, 'file', cmeasure['rawperiod'])
-        print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min") 
-    else: 
-        mytimer.set(aename, 'file', 60*60)  #default min
-        print(f"cmeasure.rawperiod= defauled 60 min") 
-
-    print(f"cmeasure.usefft= {cmeasure['usefft']}") 
-    print(f"ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
-
 
 
 print('Ready')
 Timer(10, startup).start()
-# every 1.0 sec
-RepeatedTimer(1, tick1sec)
+RepeatedTimer(0.9, do_capture)

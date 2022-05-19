@@ -40,7 +40,7 @@ CMD_B = [0x20]*6
 
 def request_cmd() :
     RXD = spi.xfer2(rq_cmd)
-    print(f'RXD= {RXD}')
+    #print(f'RXD= {RXD}')
     if   RXD == [0x2, 0x3, 0x4, 0x5, 0x6, 0x7] : # ACK
         return 1
     else : 
@@ -48,7 +48,7 @@ def request_cmd() :
 
 def send_data(cmd) : 
     RXD = spi.xfer3(cmd)
-    print(f'RXD= {RXD}')
+    #print(f'RXD= {RXD}')
     return RXD
 
 def time_conversion(stamp):
@@ -315,7 +315,7 @@ def data_receiving():
             #strain_list.append([sx, sy, sz])           
 
         json_data["Acceleration"] = acc_list
-        print(acc_list)
+        #print(acc_list)
         json_data["Strain"] = strain_list
         time.sleep(d2)
         console_msg += F" trigger= {json_data['trigger']}"

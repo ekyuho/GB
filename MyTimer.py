@@ -27,18 +27,24 @@ class MyTimer:
             if self.timer[x]['data'] == 0: 
                 self.expired[x]['data'] = True
                 self.timer[x]['data'] = self.max[x]['data']
+            elif self.timer[x]['data'] == -1:
+                pass
             else:
                 self.timer[x]['data'] -=1
 
             if self.timer[x]['state'] == 0: 
                 self.expired[x]['state'] = True
                 self.timer[x]['state'] = self.max[x]['state']*60
+            elif self.timer[x]['state'] == -1:
+                pass
             else:
                 self.timer[x]['state'] -=1
 
             if self.timer[x]['file'] == 0: 
                 self.expired[x]['file'] = True
                 self.timer[x]['file'] = self.max[x]['file']*60
+            elif self.timer[x]['file'] == -1:
+                pass
             else:
                 self.timer[x]['file'] -=1
         

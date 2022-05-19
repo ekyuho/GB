@@ -27,7 +27,7 @@ config_cmeasure['DI']={'sensitivity':24,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TP']={'sensitivity':16,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TI']={'sensitivity':20,'samplerate':"1",'usefft':'N'}
 
-cmeasure2={'offset':0,'measureperiod':600,'stateperiod':60,'rawperiod':60,
+cmeasure2={'offset':0,'measureperiod':60,'stateperiod':1,'rawperiod':1,
     'st1min':2.1, 'st1max':2.6, 'st2min':3.01, 'st2max':4.01, 'st3min':5.01, 'st3max':6.01, 'st4min':7.01, 'st4max':8.01,
         'st5min':9.01, 'st5max':10.01, 'st6min':11.01, 'st6max':12.01, 'st7min':13.01, 'st7max':14.01, 'st8min':15.01, 'st8max':16.01,
         'st9min':17.01, 'st9max':18.01, 'st10min':19.01, 'st10max':20.01}
@@ -118,14 +118,16 @@ ctrl={'cmd':''}
 #####################################################################
 ####   다음 섹션은 해당노드의 센서 정보 구성
 #####################################################################
-bridge = 11110000 #placecode 설정을 위해 변수로 재설정
+#bridge = 80061056 #placecode 설정을 위해 변수로 재설정
+bridge = 32345141 #placecode 설정을 위해 변수로 재설정
 install= {'date':'2022-04-25','place':'금남2교(하)','placecode':F'{bridge}','location':'6.7m(P2~P3)','section':'최우측 거더','latitude':'37.657248','longitude':'127.359962','aetype':'D'}
 
 
 make_ae(F'ae.{bridge}-AC_S1M_01_X', install)
+#make_ae(F'ae.{bridge}-AC_S1M_01_X', install)
 #make_ae(F'ae.{bridge}-DI_S1M_01_X', install)
 #make_ae(F'ae.{bridge}-TP_S1M_01_X', install)
-make_ae(F'ae.{bridge}-TI_S1M_01_X', install)
+#make_ae(F'ae.{bridge}-TI_S1M_01_X', install)
 
 if os.path.exists(F"{root}/config.dat"): 
     print('read from config.dat')
