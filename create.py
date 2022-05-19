@@ -55,6 +55,10 @@ def ci(aename, cnt, subcnt):
             else:
                 print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:160]} ...')
             gotok=True
+            #cin file save
+            #now=datetime.now()
+            #file_name = now.strftime("%H-%M-%S")
+            #with open(F"contentInstance - {file_name}.txt", "w") as f: f.write(json.dumps(body["m2m:cin"]["con"], indent = 4))
     except requests.exceptions.RequestException as e:
         print(f'failed to ci {e}')
 

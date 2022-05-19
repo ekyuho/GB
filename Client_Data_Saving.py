@@ -594,7 +594,6 @@ def do_capture():
                 acc_list = new_acc_list
             #print("samplerate calculation end")
             #print(acc_list)
-        
     Acceleration_data = acc_list
     Strain_data = str_list
     Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]

@@ -32,7 +32,6 @@ config_json = {
   "sensitivity": 20,
   "samplerate": "100",
   "usefft": "Y",
-  "offset": 0,
   "measureperiod": 300,
   "stateperiod": 60,
   "rawperiod": 10,
