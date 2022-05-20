@@ -1,6 +1,6 @@
 # File_Merge.py
 # 1초단위의 데이터들을 생성시각에 따라, rawperiod에 기반해 하나의 data로 묶어 저장합니다.
-# 파일의 생성시각을 읽어오는 방식을 사용하고 있어 개선이 필요합니다.
+# 파일의 생성시각을 읽어오는 방식을 사용중입니다. 파일의 timestamp를 읽어오는 방식은 너무 오래걸리기에...
 # 현재 delay에 의한 데이터 누락에 대한 대책이 없음.
 # 0513 추가 : http file server에 묶어 저장한 데이터를 전송하는 기능도 수행중입니다. 
 
@@ -91,7 +91,18 @@ def file_save(aename, aetype, rawperiod):
     # 통합 대상인 파일을 하나씩 불러온다
     for file in range(len(data_path_list)):
         with open(data_path_list[file], "rb") as f:
-            one_file = json.loads(f.read().decode('utf_8'))
+            try:
+                one_file = json.loads(f.read().decode('utf_8'))
+            except requests.JSONDecodeError as msg:
+                print(F"ERROR : json decode has failed.\npath : '{data_path_list[file]}' ")
+                continue
+            except FileNotFoundError as msg:
+                print(F"ERROR : there is no file.\npath : '{data_path_list[file]}' ")
+                continue
+            except:
+                print("ERROR has occurred")
+                print(F"file processing skip...\npath : '{data_path_list[file]}' ")
+                continue
             if file == 0:
                 merged_file["starttime"] = one_file["time"]
             elif file == len(data_path_list)-1:
