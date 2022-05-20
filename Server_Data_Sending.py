@@ -318,7 +318,11 @@ def data_receiving():
         #print(acc_list)
         json_data["Strain"] = strain_list
         time.sleep(d2)
-        console_msg += F" trigger= {json_data['trigger']}"
+        s1 = 'trigger='
+        for x in json_data['trigger']:
+            if  json_data['trigger'][x]=='1': s1 += f' {x}:1'
+        if not s1 == 'trigger=':
+            console_msg += ' '+s1
         json_data["Status"]="Ok"
         return json_data
 
@@ -509,7 +513,7 @@ def watchdog():
         os._exit(0)
     session_active = False
 
-RepeatedTimer(10, watchdog)
+RepeatedTimer(60, watchdog)
 
 time_old=datetime.now()
 sync_time()
@@ -532,7 +536,7 @@ while(1) :
 
         now=datetime.now()
         if cmd.startswith("CAPTURE"):
-            console_msg=f'{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec'
+            console_msg=f'{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s'
             time_old=now
         else:
             console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'

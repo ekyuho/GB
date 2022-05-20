@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import time
+from time import process_time
 from datetime import datetime
 import numpy as np
 
@@ -47,8 +48,11 @@ def file_save(aename, rawperiod):
     #통합 데이터를 저장할 디렉토리가 없다면 생성
     if not os.path.exists(save_path): os.makedirs(save_path)
 
+    t1_stop = process_time()
     #통합할 데이터 list를 불러온다
-    data_path_list = filepath_list(aetype, rawperiod) 
+    data_path_list = filepath_list(aename, rawperiod) 
+    print(f'collect files: {process_time()-t1_stop:.1f}s')
+    t1_stop = process_time()
 
     if len(data_path_list) == 0:
         print("no data to merge") #통합할 데이터가 전혀 없는 경우, 통합을 수행하지 않음
@@ -92,23 +96,23 @@ def file_save(aename, rawperiod):
             
 
     now = datetime.now()
-    file_name = aename+now.strftime(F"%Y%m%d%H%M_{aename}")
+    file_name = f'{aename}_{now.strftime("%Y%m%d%H%M")}'
     with open (F"{save_path}/{file_name}.bin", "w") as f:
         json.dump(merged_file, f, indent=4) # 통합 data 저장. 분단위까지 파일명에 기록됩니다
 
-    host = ae['aename']['config']['connect']['uploadip']
-    port = ae['aename']['config']['connect']['uploadport'] 
+    print(f'merged files: {process_time()-t1_stop:.1f}s')
+    t1_stop = process_time()
+
+    host = ae[aename]['config']['connect']['uploadip']
+    port = ae[aename]['config']['connect']['uploadport'] 
     url = F"http://{host}:{port}/upload"
 
+    print(f'upload url= {url} {save_path}/{file_name}.bin')
     r = requests.post(url, data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/{file_name}.bin", "rb")})
-    print("uploaded raw data file.")
     print(f'result= {r.text}')
+    print(f'uploaded a file: {process_time()-t1_stop:.1f}s')
         
-def doit():
+def doit(aename):
     global ae
-    for aename in ae:
-        rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
-        file_save(aename, rawperiod)
-    
-if __name__ == '__main__':
-    doit()
+    rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
+    file_save(aename, rawperiod)

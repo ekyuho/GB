@@ -1,3 +1,5 @@
+from datetime import datetime
+
 class MyTimer:
     def __init__(self):
         #timer={aename:{"data":-1, "state":-1,"file":-1}}  # -1 means inactive
@@ -6,6 +8,7 @@ class MyTimer:
         self.expired={}
         #self.max={aename:{"data":False, "state":False,"file":False}}
         self.max={}
+        self.priv=datetime.now()
 
     def set(self, aename, domain, sec):
         if not aename in self.timer: 
@@ -51,7 +54,11 @@ class MyTimer:
     def ring(self, aename, domain):
         x= self.expired[aename][domain]
         self.expired[aename][domain] = False
-        if x: print(f'timer ring {aename}/{domain}')
+        if x: 
+            now = datetime.now()
+            print(f"timer ring {aename}/{domain} {datetime.now().strftime(' %H:%M:%S')} +{now-self.priv}s")
+            self.priv = now
+        
         return x
 if __name__ == '__main__':
     a = MyTimer('abc')

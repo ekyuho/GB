@@ -7,9 +7,9 @@ host = '218.232.234.232'
 port = '7579'
 cse = 'cse-gnrb-mon'
 aes = ['ae.32345141-AC_S1M_01_X', 'ae.32345141-AC_S1M_02_X', 'ae.32345141-AC_S1M_03_X', 'ae.32345141-DI_S1M_01_X', 'ae.32345141-TI_S1M_01_X', 'ae.32345141-TP_S1M_01_X']
-container = 'data/dmeasure'
+#container = 'data/dmeasure'
 #container = 'state'
-#container = 'info/manufacture'
+container = 'info/manufacture'
 
 def query(_ae):
     global host, port, cse, container

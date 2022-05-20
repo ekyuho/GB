@@ -2,7 +2,7 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
-VERSION='2-2_20220519_1755'
+VERSION='2-2_20220520_0300'
 print('\n===========')
 print(f'Verion {VERSION}')
 
@@ -40,15 +40,17 @@ import File_Cleaner
 
 broker = conf.host
 port = conf.port
-cse = conf.cse
+csename = conf.csename
 ae = conf.ae
 
 root=conf.root
-worktodo=""
-worktodo_param={}
+do_trigger=""
+do_trigger_param={}
+do_status=""
+do_status_param=""
 
-TOPIC_callback=f'/oneM2M/req/{cse["name"]}/#'
-TOPIC_response=f'/oneM2M/resp/{cse["name"]}'
+TOPIC_callback=f'/oneM2M/req/{csename}/#'
+TOPIC_response=f'/oneM2M/resp/{csename}'
 TOPIC_list = conf.TOPIC_list
 mqttc=""
 command=""
@@ -126,7 +128,7 @@ def save_conf():
     print(f"wrote config.dat")
 
 def do_user_command(aename, jcmd):
-    global ae, worktodo, worktodo_param
+    global ae, do_trigger, do_trigger_param, do_status, do_status_param
     cmd=jcmd['cmd']
     if 'reset' in cmd:
         file=f"{root}/config.dat"
@@ -150,16 +152,16 @@ def do_user_command(aename, jcmd):
         print('stop mqtt real tx')
         ae[aename]['local']['realstart']='N'
     elif cmd in {'reqstate'}:
-        print("create status ci")
-        periodic_state.report()
+        do_status="goandshoot"
+        do_status_param=aename
     elif cmd in {'settrigger'}:
         print(f'set ctrigger= {jcmd["ctrigger"]}')
         for x in jcmd["ctrigger"]:
             ae[aename]["config"]["ctrigger"][x]= jcmd["ctrigger"][x]
 
         #do_config(aename)
-        worktodo = do_config
-        worktodo_param={"aename":aename, "save":'save', "cmd":cmd}
+        do_trigger = do_config
+        do_trigger_param={"aename":aename, "save":'save', "cmd":cmd}
     elif cmd in {'setmeasure'}:
         print(f'set cmeasure= {jcmd["cmeasure"]}')
         for x in jcmd["cmeasure"]:
@@ -181,9 +183,13 @@ def do_user_command(aename, jcmd):
     elif cmd in {'measurestart'}:
         ae[aename]['local']['measurestart']='Y'
         print(f"set measurestart= {ae[aename]['local']['measurestart']}")
+        save_conf()
+        os.system('pm2 restart Send_data')
     elif cmd in {'measurestop'}:
         ae[aename]['local']['measurestart']='N'
         print(f"set measurestart= {ae[aename]['local']['measurestart']}")
+        save_conf()
+        os.system('pm2 restart Send_data')
     elif cmd == 'inoon':
         pass
     else:
@@ -285,7 +291,7 @@ def mqtt_sending(aename, data):
         "count":count,
         "data":data
         }
-    mqttc.publish(F'/{cse["name"]}/{aename}/realtime', json.dumps(BODY, ensure_ascii=False))
+    mqttc.publish(F'/{csename}/{aename}/realtime', json.dumps(BODY, ensure_ascii=False))
     
 
 
@@ -401,25 +407,20 @@ def watchdog():
         print('found server capture session freeze, exiting..')
         os._exit(0)
     session_active = False
-RepeatedTimer(10, watchdog)
+RepeatedTimer(60, watchdog)
 
 
-def do_capture():
+def do_capture(target):
     global client_socket, mqtt_measure, time_old
-    global worktodo, worktodo_param, session_active
+    global do_trigger, do_trigger_param, session_active
     global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
-    if not worktodo=="":
-        print('call work to do')
-        worktodo(worktodo_param)
-        worktodo=""
-        return
 
     t1_start=process_time()
     #print('do capture')
     if connect() == 'no':
         return
     try:
-        client_socket.sendall("CAPTURE".encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
+        client_socket.sendall(target.encode()) # deice server로 'CAPTURE' 명령어를 송신합니다.
         rData = client_socket.recv(10000)
     except OSError as msg:
         print(f"socket error {msg} exiting..")
@@ -436,21 +437,29 @@ def do_capture():
 
     session_active=True
     if jsonData["Status"] == "False":
-        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f} sec from last error')
+        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s since last device_not_ready')
         time_old=now
         return
-    
+
+    if target == 'STATUS':
+        with open('state.json', 'w') as f:
+            json.dump(jsonData, f)
+        print(f'status= {jsonData}')
+        return
+
+
+    #else target == 'CAPTURE'    
     #print('got=',jsonData)
     j=jsonData
     for aename in ae:
         if 'trigger' in j and sensor_type(aename) in j['trigger'] and j['trigger'][sensor_type(aename)]=='1':
+            print(f'trigger {aename}')
             if aename in trigger_in_progress and trigger_in_progress[aename]==1:
                 continue
 
             if sensor_type(aename) == "AC": # 동적 데이터의 경우, 트리거 전초와 후초를 고려해 전송 시행
                 trigger_list = jsonData["Acceleration"]
                 trigger_data = "unknown"
-                trigger_in_progress[aename]=1
                 ctrigger=ae[aename]['config']['ctrigger']
                 dtrigger=ae[aename]['data']['dtrigger']
                 cmeasure=ae[aename]['config']['cmeasure']
@@ -472,14 +481,14 @@ def do_capture():
                         if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
                 if trigger_data == "unknown":
-                    print("there is no trigger value")
-                    print("trigger data upload has cancelled")
+                    print("***** found unknown value. no sending data *****")
                 else:
                     dtrigger['val'] = trigger_data
                     print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
                     if int(ctrigger['afsec']) and ctrigger['afsec']>0:
                         Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
                         print(f"set trigger followup in {ctrigger['afsec']} sec")
+                        trigger_in_progress[aename]=1
                     else:
                         print(f"invalid afsec= {ctrigger['afsec']}")
             
@@ -604,7 +613,7 @@ def do_capture():
             elif stype=='TP': payload = Temperature_json["data"]
             elif stype=='DI': payload = Displacement_json["data"]
 
-            #print(F'real mqtt /{cse["name"]}/{aename}/realtime')
+            #print(F'real mqtt /{csename}/{aename}/realtime')
             mqtt_sending(aename, payload)
         else:
             #print('reslstart==N, skip real time mqtt sending')
@@ -632,6 +641,30 @@ def do_capture():
 
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 
+def do_tick():
+    global do_trigger, do_trigger_param, do_status, do_status_param
+    do_capture('CAPTURE')
+    if not do_trigger=="":
+        print('do_trigger')
+        do_trigger(do_trigger_param)
+        do_trigger=""
+    if not do_status=="":
+        do_capture('STATUS')
+        if do_status=='go': return
+
+        print(f"reqstate create state ci for {do_status_param}")
+        if do_status_param == "":
+            print('PANIC... do_status_param==null')
+        else:
+            periodic_state.update(do_status_param)
+        do_status = ''
+        do_status_param=''
+
+def do_periodic_status():
+    global do_status, do_status_param
+    do_status = 'go' 
+    do_status_param=""
+
 
 def startup():
     global ae
@@ -640,8 +673,9 @@ def startup():
         ae[aename]['info']['manufacture']['fwver']=VERSION
         create.allci(aename, {'config','info'})
         do_config({'aename':aename, 'cmd':'','save':'nosave'})
+        RepeatedTimer(ae[aename]['config']['cmeasure']['stateperiod']*60, do_periodic_status)
 
 
 print('Ready')
 Timer(10, startup).start()
-RepeatedTimer(0.9, do_capture)
+RepeatedTimer(0.9, do_tick)

@@ -108,7 +108,7 @@ def FFT(cmeasure, data_list):
 # 입력받은 aename을 가진 oneM2M 서버에 통계값을 포함한 컨텐트인스턴스 생성 명령을 보냅니다.
 def report(aename):
     global ae
-    print(f'periodic_accerelation  {aename}')
+    print(f'create ci for {aename}')
     cmeasure = ae[aename]['config']['cmeasure']
     path_list = find_pathlist(cmeasure)
     path_list.sort() # 추후 fft 시작시간을 알아내기 위해 정렬
@@ -122,7 +122,7 @@ def report(aename):
                 data_list.append(json_data["data"][j])
     
     # 통계의 대상이 되는 파일이 전혀 없었을 경우, 전송을 수행하지 않습니다.
-    print(f'path_list= {len(path_list)} data_list= {len(data_list)}')
+    print(f'files= {len(path_list)} data= {len(data_list)}')
     if len(data_list) == 0:
         print("no data to upload. skip")
         

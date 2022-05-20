@@ -12,7 +12,7 @@ from datetime import datetime
 import conf
 host = conf.host
 port = conf.port
-cse = conf.cse
+csename = conf.csename
 ae = conf.ae
 
 root=conf.root
@@ -35,10 +35,10 @@ def ci(aename, cnt, subcnt):
         }
     }
     if cnt in {'config','info','data'}:
-        url = F"http://{host}:7579/{cse['name']}/{aename}/{cnt}/{subcnt}"
+        url = F"http://{host}:7579/{csename}/{aename}/{cnt}/{subcnt}"
         body["m2m:cin"]["con"] = ae[aename][cnt][subcnt]
     else:
-        url = F"http://{host}:7579/{cse['name']}/{aename}/{cnt}"
+        url = F"http://{host}:7579/{csename}/{aename}/{cnt}"
         body["m2m:cin"]["con"] = ae[aename][cnt]
     #body["m2m:cin"]["con"]["time"]=now.strftime("%Y-%m-%d %H:%M:%S")
     #print(f'{url} {json.dumps(body)[:40]}')
@@ -50,10 +50,12 @@ def ci(aename, cnt, subcnt):
         if "m2m:dbg" in r.json():
             print(f'got error {r.json}')
         else:
+            if subcnt == "": x=''
+            else: x=f'/{subcnt}'
             if len(json.dumps(r.json()["m2m:cin"]["con"])) < 100:
-                print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
+                print(f'  created ci {cnt}{x}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
             else:
-                print(f'  created ci {cnt}/{subcnt}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:160]} ...')
+                print(f'  created ci {cnt}{x}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:160]} ...')
             gotok=True
             #cin file save
             #now=datetime.now()

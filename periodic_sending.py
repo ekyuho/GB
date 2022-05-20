@@ -17,7 +17,6 @@ import create
 import conf
 host = conf.host
 port = conf.port
-cse = conf.cse
 ae = conf.ae
 root=conf.root
 

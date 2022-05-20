@@ -1,19 +1,12 @@
-from ast import Return
-from encodings import utf_8
-import threading
-import requests
-import json
 import os
 import sys
 import time
 from datetime import datetime
-import numpy as np
 import conf
 
 ae = conf.ae
 root = conf.root
-
-path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree'}
+path = conf.path
 
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
@@ -23,6 +16,7 @@ def delete_filepath_list(stype, cleanperiod): # 가장 최근 rawperiod간의 �
     raw_path = F"{root}/raw_data/{path[stype]}"
 
     file_list = os.listdir(raw_path)
+    print(f'File_Cleaner found total {len(file_list)} files')
     present_time = time.time()
     data_path_list = list()
     for i in range (len(file_list)):
@@ -41,17 +35,14 @@ def file_clean(stype, cleanperiod):
         print("no data to merge") #삭제할 데이터가 전혀 없는 경우, 삭제를 수행하지 않음
         return
 
+    print(f'File_Cleaner removing {len(data_path_list)} files')
     for file in data_path_list:
         try:
             os.remove(file) # 삭제할 파일이 존재하는 경우 삭제를 수행(에러 방지)
         except:
             print("ghost file")
     
-def doit():
+def doit(aename):
     global ae
-    for aename in ae:
-        cleanperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]+5 #rawperiod보다 5분 더 여유를 두고 삭제 작업을 진행
-        file_clean(sensor_type(aename), cleanperiod)
-
-if __name__ == "__main__":
-    doit()
+    cleanperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]+5 #rawperiod보다 5분 더 여유를 두고 삭제 작업을 진행
+    file_clean(sensor_type(aename), cleanperiod)
