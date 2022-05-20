@@ -15,35 +15,21 @@ import sys
 import time
 from datetime import datetime
 import numpy as np
-import conf
 
+import conf
 ae = conf.ae
 root = conf.root
-
-connect = conf.config_connect
-
-host = connect["uploadip"]
-port = connect["uploadport"] # 통일성을 위해 추후 port = connect["uploadport"]로 바꿔야할듯합니다만, uploadport의 기본값이 건기연 서버의 포트와 달라(80) 임시로 상수를 입력해두었습니다.
+path = conf.path
 
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
 
 # 통합할 파일 list 작성
 def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 뽑는다
-    raw_path = F"{root}/raw_data"
-    if aename == "AC" :
-        raw_path+="/Acceleration"
-    elif aename == "DI" :
-        raw_path+="/Displacement"
-    elif aename == "TP" :
-        raw_path+="/Temperature"
-    elif aename == "TI" :
-        raw_path+="/Degree"
-    else :
-        print("aename error")
-        return
+    raw_path = F"{root}/raw_data/{path[sensor_type(aename)]}"
 
     file_list = os.listdir(raw_path)
+    print(f'File_Merge:  processing {rawperiod} minutes {len(file_list)} files')
     present_time = time.time()
     data_path_list = list()
     for i in range (len(file_list)):
@@ -55,19 +41,8 @@ def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 
     data_path_list.sort()
     return data_path_list
 
-def file_save(aename, aetype, rawperiod):
-    save_path = F"{root}/merged_data"
-    if aetype == "AC" :
-        save_path+="/Acceleration"
-    elif aetype == "DI" :
-        save_path+="/Displacement"
-    elif aetype == "TP" :
-        save_path+="/Temperature"
-    elif aetype == "TI" :
-        save_path+="/Degree"
-    else :
-        print("aename error")
-        return
+def file_save(aename, rawperiod):
+    save_path = F"{root}/merged_data/{path[sensor_type(aename)]}"
     
     #통합 데이터를 저장할 디렉토리가 없다면 생성
     if not os.path.exists(save_path): os.makedirs(save_path)
@@ -110,18 +85,19 @@ def file_save(aename, aetype, rawperiod):
     with open (F"{save_path}/{file_name}.bin", "w") as f:
         json.dump(merged_file, f, indent=4) # 통합 data 저장. 분단위까지 파일명에 기록됩니다
 
+    host = ae['aename']['config']['connect']['uploadip']
+    port = ae['aename']['config']['connect']['uploadport'] 
     url = F"http://{host}:{port}/upload"
 
-    r = requests.post("http://218.232.234.232:2883/upload", data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/{file_name}.bin", "rb")})
-    print("raw data upload trying...")
-    print(r.text)
+    r = requests.post(url, data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/{file_name}.bin", "rb")})
+    print("uploaded raw data file.")
+    print(f'result= {r.text}')
         
 def doit():
     global ae
     for aename in ae:
         rawperiod = ae[aename]["config"]["cmeasure"]["rawperiod"]
-        file_save(aename, sensor_type(aename), rawperiod)
+        file_save(aename, rawperiod)
     
-    
-
-
+if __name__ == '__main__':
+    doit()
