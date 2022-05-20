@@ -39,9 +39,21 @@ def find_pathlist(cmeasure):
     #present_time = time.time()
     data_path_list = list()
     for i in range (len(file_list)):
+        #print("periodic data file : ", file_list[i])
         with open (path+'/'+file_list[i], "rb") as f:
-            file_json = json.loads(f.read().decode('utf_8'))
-            file_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #모든 파일의 timestamp를 확인
+            try:
+                file_json = json.loads(f.read().decode('utf_8'))
+            except requests.JSONDecodeError as msg:
+                print(F"ERROR : json decode has failed.\npath : '{file_list[i]}' ")
+                continue
+            except FileNotFoundError as msg:
+                print(F"ERROR : there is no file.\npath : '{file_list[i]}' ")
+                continue
+            except:
+                print("ERROR has occurred")
+                print(F"file processing skip...\npath : '{file_list[i]}' ")
+                continue
+        file_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #모든 파일의 timestamp를 확인
         #file_time = os.path.getmtime(path+'/'+file_list[i])
         time_gap = present_time-file_time
         if time_gap <= cmeasure["measureperiod"]: # 추후 데이터 수집 범위 10분으로 고정 예정
