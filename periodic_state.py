@@ -1,7 +1,6 @@
 import sys
 import os
 import psutil
-import shlex, subprocess
 from datetime import datetime, timedelta
 import time
 import json
@@ -24,20 +23,22 @@ def update(aename):
                             'cpu':0,
                             'time':'yyyy-MM-dd HH:mm:ss.ffff',
                             'uptime':'?days, 13:29:34',
-                            'abflag':'N',
+                            'abflag':'N'
                             #'abtime':'',
                             #'abdesc':'',
-                            'solarinputvolt':0,
-                            'solarinputamp':0,
-                            'solarchargevolt':0,
-                            'powersupply':5}
+                            #'solarinputvolt':0,
+                            #'solarinputamp':0,
+                            #'solarchargevolt':0,
+                            #'powersupply':5
+                        }
 
     state = ae[aename]['state']
     state['cpu']=psutil.cpu_percent()
     memory = psutil.virtual_memory()
-    state['memory']=100*(memory.total-memory.available)/memory.total
-    state['disk']= psutil.disk_usage('/')[3]
-    state['time']= datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    m2=f'{100*(memory.total-memory.available)/memory.total:.1f}'
+    state['memory']=float(m2)
+    state['disk']= float(f"{psutil.disk_usage('/')[3]:.1f}")
+    state['time']= datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
     sec = time.time() - psutil.boot_time()
     days=int(sec/86400)
