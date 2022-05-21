@@ -453,7 +453,7 @@ def do_capture(target):
     j=jsonData
     for aename in ae:
         if 'trigger' in j and sensor_type(aename) in j['trigger'] and j['trigger'][sensor_type(aename)]=='1':
-            print(f'trigger {aename}')
+            msg = f'trigger {aename}'
             if aename in trigger_in_progress and trigger_in_progress[aename]==1:
                 continue
 
@@ -481,13 +481,13 @@ def do_capture(target):
                         if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
                 if trigger_data == "unknown":
-                    print("***** found unknown value. no sending data *****")
+                    print(f"{msg} -> but with unknown value ****")
                 else:
                     dtrigger['val'] = trigger_data
-                    print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+                    #print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
                     if int(ctrigger['afsec']) and ctrigger['afsec']>0:
                         Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
-                        print(f"set trigger followup in {ctrigger['afsec']} sec")
+                        print(f"{msg} -> set trigger followup in {ctrigger['afsec']} sec")
                         trigger_in_progress[aename]=1
                     else:
                         print(f"invalid afsec= {ctrigger['afsec']}")
@@ -650,7 +650,9 @@ def do_tick():
         do_trigger=""
     if not do_status=="":
         do_capture('STATUS')
-        if do_status=='go': return
+        if do_status=='go': 
+            do_status=""
+            return
 
         print(f"reqstate create state ci for {do_status_param}")
         if do_status_param == "":

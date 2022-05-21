@@ -40,6 +40,7 @@ def filepath_list(aename, rawperiod): # 가장 최근 rawperiod간의 파일을 
             data_path_list.append(raw_path+'/'+file_list[i])
             #print(file_list[i])
     data_path_list.sort()
+    print(f'File_Merge:  will merge {len(data_path_list.sort)} files')
     return data_path_list
 
 def file_save(aename, rawperiod):
