@@ -42,14 +42,16 @@ def update(aename):
     sec = time.time() - psutil.boot_time()
     days=int(sec/86400)
     sec=sec%86400
-    state['uptime']= f'{days}days, {str(timedelta(seconds=sec))}'
+    hours=int(sec/3600)
+    sec=sec%3600
+    mins=int(sec/60)
+
+    state['uptime']= f'{days}, {hours}, {mins}'
 
     if os.path.exists('state.json'):
         with open('state.json','r')as f: j=json.load(f)
         print(f'j= {j}')
         state['battery']=j['battery']
-        state['solarinputvolt']=j['vdd']
-        state['solarinputamp']=j['solar']
     else:
         print('state file not ready yet')
 
