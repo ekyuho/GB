@@ -42,6 +42,8 @@ broker = conf.host
 port = conf.port
 csename = conf.csename
 ae = conf.ae
+path = conf.path
+supported_sensors = conf.supported_sensors
 
 root=conf.root
 do_trigger=""
@@ -66,18 +68,17 @@ deg_axis = "x" # x, y, z중 택1
 str_axis = "z" # x, y, z중 택1
 dis_channel = "ch4" # ch4, ch5중 택1
 
+def sensor_type(aename):
+    return aename.split('-')[1][0:2]
+
 #센서별 데이타 저장소, 디렉토리가 없으면 자동생성
-acc_path = F"{root}/raw_data/Acceleration"
-deg_path = F"{root}/raw_data/Degree"
-dis_path = F"{root}/raw_data/Displacement"
-str_path = F"{root}/raw_data/Strain"
-tem_path = F"{root}/raw_data/Temperature"
 if not os.path.exists(F"{root}/raw_data"): os.makedirs(F"{root}/raw_data")
-if not os.path.exists(acc_path): os.makedirs(acc_path)
-if not os.path.exists(deg_path): os.makedirs(deg_path)
-if not os.path.exists(dis_path): os.makedirs(dis_path)
-if not os.path.exists(str_path): os.makedirs(str_path)
-if not os.path.exists(tem_path): os.makedirs(tem_path)
+
+for stype in supported_sensors: # {'AC', 'DI', 'TP', 'TI', 'EX'}
+    raw_path = F"{root}/raw_data/{path[stype]}"
+    if not os.path.exists(raw_path): 
+        print(f'created directory {raw_path}')
+        os.makedirs(raw_path)
 
 client_socket=""
 
@@ -110,15 +111,13 @@ def jsonCreate(dataType, timeData, realData):
         }
     return data
 
-def sensor_type(aename):
-    return aename.split('-')[1][0:2]
 
 # void jsonSave(path, jsonFile)
 # 받은 dict를 json으로 변환한 후, 지정된 path에 저장합니다.
 # 파일명은 기본적으로 날짜
 
 def jsonSave(path, jsonFile):
-    now = datetime.now()
+    now = datetime.strptime(jsonFile['time'],'%Y-%m-%d %H:%M:%S.%f')
     with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
         json.dump(jsonFile, f, indent=4)
 
@@ -350,55 +349,64 @@ def do_config(param):
             create.ci(aename, 'config', 'time')
         save_conf()
 
-def do_trigger_followup(aename):
-    global ae
-    global jsonData
+def do_trigger_followup(aename, _trigtime):
+    global ae,root,path
     print(f'trigger_followup {aename}')
     trigger_in_progress[aename]=0
     dtrigger=ae[aename]['data']['dtrigger']
     stype = sensor_type(aename)
+    #_trigtime='2022-05-22 00:17:33.12122'
+    trigtime = datetime.strptime(_trigtime, "%Y-%m-%d %H:%M:%S.%f")
+    print(f'trigtime=  {trigtime}')
 
-    def find_pathlist():
-        global ae
-        ctrigger = ae[aename]['config']['ctrigger']
-        path = F"{root}/raw_data/Acceleration"
-        file_list = os.listdir(path)
-        present_time = datetime.strptime(last_sensor_value[aename][stype]["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #가장 최근 파일의 timestamp 확인
-        data_path_list = list()
-        for i in range (len(file_list)):
-            with open (path+'/'+file_list[i], "rb") as f:
-                file_json = json.loads(f.read().decode('utf_8'))
-                file_time = datetime.strptime(file_json["time"], "%Y-%m-%d %H:%M:%S.%f").timestamp() #모든 파일의 timestamp를 확인한다
-            #file_time = os.path.getmtime(path+'/'+file_list[i]) # 데이터 생성시각 기준
-            time_gap = present_time-file_time
-            if time_gap <= ctrigger['afsec']+ctrigger['bfsec']: 
-                data_path_list.append(path+'/'+file_list[i]) # 전초+후초 기간 내에 측정된 데이터라면 pathlist에 추가
-                #print(file_list[i])
-        data_path_list.sort()
-        return data_path_list
+    ctrigger = ae[aename]['config']['ctrigger']
+    raw_path = F"{root}/raw_data/{path[stype]}"
+    print(f"raw_path= {root}/raw_data/{path[stype]}")
+
+    data_path_list = list()
+    j=0
+    for i in range(0,1000):
+        fname = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
+        if os.path.exists(f'{raw_path}/{fname}'):
+            print(f'file ok -{i} {raw_path}/{fname}')
+            data_path_list.append(f'{raw_path}/{fname}')
+            j +=1
+            start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
+            if j> ctrigger['bfsec']:
+                print(f"done i= {i} bfsec= {ctrigger['bfsec']}")
+                start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
+                break;
+        else:
+            print(f'no file -{i} {raw_path}/{fname}')
+    j=0
+    for i in range(1, 1000):
+        fname = datetime.strftime(trigtime + timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
+        if os.path.exists(f'{raw_path}/{fname}'):
+            print(f'file ok +{i} {fname}')
+            data_path_list.append(f'{raw_path}/{fname}')
+            j+=1
+            if j>= ctrigger['afsec']:
+                print(f"done afsec= {ctrigger['afsec']}")
+                break;
+        else:
+            print(f'no file +{i} {raw_path}/{fname}')
+    print(f'found {len(data_path_list)} files')
+    data_path_list.sort()
 
     # path에 존재하는 모든 data를 열어보고, 보낼 데이터 list를 작성한다.
     # 정렬된 data_path_list가 들어오기 때문에, 가장 처음 들어오는 데이터가 가장 오래된 데이터. 즉, start data이다.
-    def merge_data(data_path_list):
-        global ae
-        dtrigger=ae[aename]['data']['dtrigger']
-        data_list = list()
-        for file in range(len(data_path_list)):
-            with open(data_path_list[file], "rb") as f:
-                one_file = json.loads(f.read().decode('utf_8'))
-                if file==0:
-                    dtrigger["start"] = one_file["time"]
-            for i in range(len(one_file["data"])):
-                data_list.append(one_file["data"][i])
-
-        return data_list
-    
-    data = merge_data(find_pathlist())
+    data = list()
+    for file in range(len(data_path_list)):
+        with open(data_path_list[file], "rb") as f:
+            one_file = json.load(f)
+            if isinstance(one_file['data'], list): data.extend(one_file["data"])
+            else: data.append(one_file["data"])
 
     dtrigger['count']=len(data)
     dtrigger['data']=data
+    dtrigger["start"] = start
     create.ci(aename, 'data', 'dtrigger')
-    print("trigger data has sent")
+    print(f"comiled trigger data: {len(data)} bytes")
 
 session_active = False
 def watchdog():
@@ -453,6 +461,9 @@ def do_capture(target):
     j=jsonData
     for aename in ae:
         if 'trigger' in j and sensor_type(aename) in j['trigger'] and j['trigger'][sensor_type(aename)]=='1':
+            if ae[aename]['config']['ctrigger']['use'] not in {'Y','y'}:
+                print(f"{aename} use trigger= {ae[aename]['config']['ctrigger']['use']}")
+                continue
             msg = f'trigger {aename}'
             if aename in trigger_in_progress and trigger_in_progress[aename]==1:
                 continue
@@ -480,13 +491,17 @@ def do_capture(target):
                     elif ctrigger['mode'] == 4:
                         if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
+                #print(f'TEST TRIGGER with FAKE')
+                #trigger_data = 299
                 if trigger_data == "unknown":
-                    print(f"{msg} -> but with unknown value ****")
+                    #print(f"{msg} -> but with unknown value ****")
+                    pass
                 else:
                     dtrigger['val'] = trigger_data
                     #print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
-                    if int(ctrigger['afsec']) and ctrigger['afsec']>0:
-                        Timer(ctrigger['afsec'], do_trigger_followup, [aename]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
+                    if isinstance(ctrigger['afsec'],int) and ctrigger['afsec']>0:
+                        # add additional 5 sec just in case
+                        Timer(ctrigger['afsec']+5, do_trigger_followup, [aename, jsonData["Timestamp"]]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
                         print(f"{msg} -> set trigger followup in {ctrigger['afsec']} sec")
                         trigger_in_progress[aename]=1
                     else:
@@ -538,7 +553,6 @@ def do_capture(target):
     }
 
     for aename in ae:
-
         cmeasure=ae[aename]['config']['cmeasure']
         type = sensor_type(aename)
 
@@ -595,11 +609,13 @@ def do_capture(target):
     Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]
     
     # 센서의 특성을 고려해 각 센서 별로 센서 data를 담은 dict 생성
-    Degree_json = jsonCreate("Degree", Time_data, Degree_data)
-    Temperature_json = jsonCreate("Temperature", Time_data, Temperature_data)
-    Displacement_json = jsonCreate("Displacement", Time_data, Displacement_data)
-    Acceleration_json = jsonCreate("Acceleration", Time_data, Acceleration_data)
-    Strain_json = jsonCreate("Strain", Time_data, Strain_data)
+    raw_json={}
+    raw_json['TI'] = jsonCreate(path['TI'], Time_data, Degree_data)
+    raw_json['TP'] = jsonCreate(path['TP'], Time_data, Temperature_data)
+    raw_json['DI'] = jsonCreate(path['DI'], Time_data, Displacement_data)
+    raw_json['AC'] = jsonCreate(path['AC'], Time_data, Acceleration_data)
+    raw_json['EX'] = jsonCreate(path['EX'], Time_data, Strain_data)
+    
     
     # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
     # 내 device의 ae에 지정된 sensor type 정보만을 전송
@@ -608,36 +624,21 @@ def do_capture(target):
         stype = sensor_type(aename)
         #print(f"mqtt {aename} {stype} {ae[aename]['local']['realstart']}")
         if ae[aename]['local']['realstart']=='Y':  # mqtt_realtime is controlled from remote user
-            if stype=='AC': payload = Acceleration_json["data"]
-            elif stype=='TI': payload = Degree_json["data"]
-            elif stype=='TP': payload = Temperature_json["data"]
-            elif stype=='DI': payload = Displacement_json["data"]
-
-            #print(F'real mqtt /{csename}/{aename}/realtime')
+            payload = raw_json[stype]["data"]
             mqtt_sending(aename, payload)
+            #print(F'real mqtt /{csename}/{aename}/realtime')
         else:
             #print('reslstart==N, skip real time mqtt sending')
             pass
 
-    
     # 센서별 json file 생성
     # 내 ae에 지정된 sensor type정보만을 저장
     for aename in ae:
         stype = sensor_type(aename)
         if not aename in last_sensor_value: last_sensor_value[aename]={}
-        if stype=='AC': 
-            jsonSave(acc_path, Acceleration_json)
-            last_sensor_value[aename][stype]=Acceleration_json
-        elif stype=='TI': 
-            jsonSave(deg_path, Degree_json)
-            last_sensor_value[aename][stype]=Degree_json
-        elif stype=='TP': 
-            jsonSave(tem_path, Temperature_json)
-            last_sensor_value[aename][stype]=Temperature_json
-        elif stype=='DI': 
-            jsonSave(dis_path, Displacement_json)
-            last_sensor_value[aename][stype]=Displacement_json
-
+        jsonSave(F"{root}/raw_data/{path[stype]}", raw_json[stype])
+        last_sensor_value[aename][stype]=raw_json[stype]
+        if stype == 'AC': print(f"saved {stype} {len(raw_json[stype]['data'])} data")
 
     #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
 

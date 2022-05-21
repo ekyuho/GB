@@ -137,13 +137,13 @@ while(1) :
     #print("s 111111");
     #print(spi.xfer2([1]) )
     
-    print("s:"+ "0x24")		# request header
+    print("s:"+ "0x24", end=' ')		# request header
     rcv1 = spi.xfer2([0x24])
     #print(rcv1)
-    print("header data signal")
+    #print("header data signal")
     time.sleep(ds)
 
-    print("s:"+ "0x40")
+    print("s:"+ "0x40", end=' ')
     rcv2 = spi.xfer2([0x40]*8) # follow up action
     #print(rcv2)
     
@@ -159,8 +159,7 @@ while(1) :
         time.sleep(ds)
     else:
         isReady = False
-        print("data is'nt ready yet")
-        print("retry...")
+        print("-> error")
         
     if isReady: #only send data if data is ready
         print("s:"+ "0x26")		# request static

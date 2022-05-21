@@ -1,12 +1,12 @@
 #####################################################################
 
-supported_sensors = {'AC', 'DI', 'TP', 'TI'}
+supported_sensors = {'AC', 'DI', 'TP', 'TI', 'EX'}
 
 #####################################################################
 #### 다음 섹션은 센서별 generic factory 초기설정값
 #####################################################################
 config_ctrigger={}
-config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
+config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":10,"afsec":10}
 config_ctrigger["DI"]={"use":"N","mode":3,"st1high":700,"st1low":100,"bfsec":0,"afsec":1}
 config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
 config_ctrigger["TI"]={"use":"N","mode":3,"st1high":5,"st1low":-5,"bfsec":0,"afsec":1}
@@ -97,4 +97,4 @@ def make_ae(aename, csename, install, config_connect):
 ctrl={'cmd':''}
 # 'reset','reboot  synctime','fwupdate','realstart','realstop','reqstate','settrigger','settime','setmeasure','setconnect','measurestart','meaurestop'
 
-path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree'}
+path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree', 'EX':'Strain'}
