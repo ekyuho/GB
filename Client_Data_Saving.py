@@ -25,13 +25,12 @@ from events import Events
 from RepeatedTimer import RepeatedTimer
 
 import versionup
-import periodic_state
-import periodic_acceleration
-import periodic_temperature
-import periodic_degree
-import periodic_displacement
 import create  #for Mobius resource
 import conf
+
+import Send_data
+import Send_file
+import Send_state
 
 import make_oneM2M_resource
 
@@ -190,22 +189,15 @@ def do_user_command(aename, jcmd):
         save_conf()
         os.system('pm2 restart Send_data')
     elif cmd == 'inoon':
-        pass
+        cmd2=jcmd['cmd2']
+        if cmd2=='data': Send_data.do_periodic_data(aename)
+        elif cmd2=='file': Send_file.do_periodic_file(aename)
+        elif cmd2=='state': Send_state.do_periodic_state(aename)
+        else:
+            print(f'invalid cmd  {jcmd}')
     else:
         print(f'invalid cmd {jcmd}')
         
-'''
-    ClientSock.sendall(jcmd["cmd"].encode())
-
-    rData = ClientSock.recv(10000).decode('utf_8')
-    j = json.loads(rData)
-
-    if j["Status"] == "False":
-        print(f' failed {json.dumps(j, ensure_ascii=False)}')
-        return
-    print(j)
-'''
-
 
 def got_callback(topic, msg):
     global mqttc
@@ -365,21 +357,21 @@ def do_trigger_followup(aename, _trigtime):
 
     data_path_list = list()
     j=0
-    for i in range(0,1000):
+    for i in range(0,100):
         fname = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
         if os.path.exists(f'{raw_path}/{fname}'):
             print(f'file ok -{i} {raw_path}/{fname}')
             data_path_list.append(f'{raw_path}/{fname}')
             j +=1
             start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
-            if j> ctrigger['bfsec']:
+            if j>= ctrigger['bfsec']:
                 print(f"done i= {i} bfsec= {ctrigger['bfsec']}")
                 start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
                 break;
         else:
             print(f'no file -{i} {raw_path}/{fname}')
     j=0
-    for i in range(1, 1000):
+    for i in range(1, 100):
         fname = datetime.strftime(trigtime + timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
         if os.path.exists(f'{raw_path}/{fname}'):
             print(f'file ok +{i} {fname}')
