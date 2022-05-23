@@ -18,9 +18,12 @@ from datetime import datetime
 import numpy as np
 
 import conf
+
 ae = conf.ae
 root = conf.root
-path = conf.path
+
+import default
+path = default.path
 
 def sensor_type(aename):
     return aename.split('-')[1][0:2]

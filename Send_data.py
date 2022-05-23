@@ -45,22 +45,22 @@ def do_periodic_data(aename):
     print('----')
 	
 def run():
-	for aename in ae:
-	    cmeasure=ae[aename]['config']['cmeasure']
+    for aename in ae:
+        cmeasure=ae[aename]['config']['cmeasure']
+        if 'measureperiod' in cmeasure and isinstance(cmeasure['measureperiod'], int): 
+            print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
+            interval = cmeasure['measureperiod']
+        else: 
+            print(f"cmeasure.measureperiod= defaulted 600 sec") 
+            interval = 600
+        RepeatedTimer(interval, do_periodic_data, aename)
 	
-	    if 'measureperiod' in cmeasure and isinstance(cmeasure['measureperiod'],int): 
-	        print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
-	        interval = cmeasure['measureperiod']
-	    else: 
-	        print(f"cmeasure.measureperiod= defaulted 600 sec") 
-	        interval = 600
-	    RepeatedTimer(interval, do_periodic_data, aename)
-	
-	    print(f"{aename} cmeasure.usefft= {cmeasure['usefft']}") 
-	    print(f"{aename} ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
-	    print(f"{aename} measurestart= {ae[aename]['local']['measurestart']}")
-	print('Ready')
-	print()
+        print(f"{aename} cmeasure.usefft= {cmeasure['usefft']}") 
+        print(f"{aename} ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
+        print(f"{aename} measurestart= {ae[aename]['local']['measurestart']}")
+    print('Ready')
+    print()
+    #indentation error 해결
 
 if __name__ == '__main__':
     run()

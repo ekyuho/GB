@@ -450,7 +450,9 @@ def do_capture(target):
 
     #else target == 'CAPTURE'    
     #print('got=',jsonData)
+    
     j=jsonData
+    # trigger data 처리
     for aename in ae:
         if 'trigger' in j and sensor_type(aename) in j['trigger'] and j['trigger'][sensor_type(aename)]=='1':
             if ae[aename]['config']['ctrigger']['use'] not in {'Y','y'}:
@@ -493,7 +495,7 @@ def do_capture(target):
                     #print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
                     if isinstance(ctrigger['afsec'],int) and ctrigger['afsec']>0:
                         # add additional 5 sec just in case
-                        Timer(ctrigger['afsec']+5, do_trigger_followup, [aename, jsonData["Timestamp"]]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
+                        Timer(ctrigger['afsec']+5, do_trigger_followup, [aename, jsonData["Timestamp"]]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음
                         print(f"{msg} -> set trigger followup in {ctrigger['afsec']} sec")
                         trigger_in_progress[aename]=1
                     else:
@@ -541,13 +543,15 @@ def do_capture(target):
         "AC":0,
         "DI":0,
         "TP":0,
-        "TI":0
+        "TI":0,
+        "EX":0
     }
 
     for aename in ae:
         cmeasure=ae[aename]['config']['cmeasure']
         type = sensor_type(aename)
 
+        # offset 추가 작업. offset의 기본값은 0이다
         if type == 'TP' and 'offset' in cmeasure:
             offset_dict["TP"] = cmeasure['offset']
         elif type == 'DI' and 'offset' in cmeasure:
@@ -556,6 +560,8 @@ def do_capture(target):
             offset_dict["AC"] = cmeasure['offset']
         elif type == "TI" and 'offset' in cmeasure:
             offset_dict["TI"] = cmeasure['offset']
+        elif type == "EX" and 'offset' in cmeasure:
+            offset_dict["EX"] == cmeasure['offset']
 
     Time_data = jsonData["Timestamp"]
     Temperature_data = jsonData["Temperature"] + offset_dict["TP"]
@@ -567,7 +573,7 @@ def do_capture(target):
     for i in range(len(jsonData["Acceleration"])):
         acc_list.append(jsonData["Acceleration"][i][acc_axis] + offset_dict["AC"])
     for i in range(len(jsonData["Strain"])):
-        str_list.append(jsonData["Strain"][i][str_axis]) #offset 기능 구현되어있지 않음
+        str_list.append(jsonData["Strain"][i][str_axis]) #현재 Strain의 offset은 작동하지 않음
         
     #print(F"acc : {acc_list}")
     #samplerate에 따라 파일에 저장되는 data 조정
@@ -651,7 +657,7 @@ def do_tick():
         if do_status_param == "":
             print('PANIC... do_status_param==null')
         else:
-            periodic_state.update(do_status_param)
+            Send_data.do_periodic_data(do_status_param)
         do_status = ''
         do_status_param=''
 

@@ -54,23 +54,23 @@ def read(aename):
 
     if cmeasure['usefft'] in {'Y','y'}:
         print(f'no fft implementation for {aename}')
-    return
+        return
 
     data_path = find_path(cmeasure)
-    now = datetime.now()
     
     if data_path != '0':
         with open(data_path) as f:
             json_data = json.load(f)
     
         dmeasure = {}
+        dmeasure['type'] = "S"
+        dmeasure['time'] = json_data['time']
         dmeasure['val'] = json_data["data"]
         ae[aename]['data']['dmeasure'] = dmeasure
 
         create.ci(aename, 'data', 'dmeasure')
 
-def report():
+def report(aename):
     global ae
-    print('periodic_temperature')
-    for aename in ae:
-        read(aename)
+    print('periodic_temperature ')
+    read(aename)

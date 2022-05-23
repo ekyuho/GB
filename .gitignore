@@ -1,3 +1,4 @@
 raw_data/
 __pycache__/
 actuate_test.py
+conf.py

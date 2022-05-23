@@ -23,17 +23,23 @@ def makeit():
     url = F"http://{host}:7579/{csename}"
     r = requests.get(url, headers=h)
     print('found', 'm2m:cb', r.json()["m2m:cb"]["rn"])
+
+    aename_list = list()
+    for aename in ae:
+        aename_list.append(aename) # 설정된 ae name을 모은 list를 따로 생성
     
     print('Query AE: ')
-    found=False
+    #found=False
     for k in ae:
         url = F"http://{host}:7579/{csename}/{k}"
         r = requests.get(url, headers=h)
         j=r.json()
         if "m2m:ae" in j:
             print('found', r.json()["m2m:ae"]["rn"])
-            found = True
-    if found:
+            if r.json()["m2m:ae"]["rn"] in aename_list:
+                aename_list.remove(r.json()["m2m:ae"]["rn"]) # 정말로 설정에 존재하는 모든 AE가 존재하는지 하나씩 지워가면서 확인
+            #found = True
+    if len(aename_list) == 0:
         return
     
     print('Found no AE. Create fresh one')
@@ -53,12 +59,16 @@ def makeit():
     }
     url = F"http://{host}:7579/{csename}"
     for k in ae:
-        body["m2m:ae"]["rn"]=k
-        body["m2m:ae"]["lbl"]=[k]
-        if not verify_only:
-            r = requests.post(url, data=json.dumps(body), headers=h)
-            print('created m2m:ae', r.json()["m2m:ae"]["rn"])
-            if "m2m:dbg" in r.json(): sys.exit(0)
+        if k not in aename_list:
+            print(F"{k} already exist")
+            continue
+        else:
+            body["m2m:ae"]["rn"]=k
+            body["m2m:ae"]["lbl"]=[k]
+            if not verify_only:
+                r = requests.post(url, data=json.dumps(body), headers=h)
+                print('created m2m:ae', r.json()["m2m:ae"]["rn"])
+                if "m2m:dbg" in r.json(): sys.exit(0)
     
     def create_sub(aename):
         h={
