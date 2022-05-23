@@ -257,11 +257,9 @@ def data_receiving():
         json_data["Timestamp"] = timestamp
         #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
         json_data["trigger"] = status_trigger_return(status)
-        console_msg = ""
     else:
         isReady = False
-        #console_msg += " ** device not ready"
-        console_msg = ""
+        console_msg += " ** device not ready"
         fail_data = {"Status":"False"}
         return fail_data
         
@@ -543,7 +541,6 @@ while(1) :
         else:
             console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'
         do_command(cmd, param)
-        if console_msg != "":
-            print(console_msg)
+        print(console_msg)
 
 

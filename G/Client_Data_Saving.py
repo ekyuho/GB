@@ -438,8 +438,7 @@ def do_capture(target):
 
     session_active=True
     if jsonData["Status"] == "False":
-        #print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s since last data_not_ready')
-        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s') 
+        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s since last device_not_ready')
         time_old=now
         return
 
@@ -653,6 +652,7 @@ def do_tick():
         if do_status_param == "":
             print('PANIC... do_status_param==null')
         else:
+            #Send_state.do_periodic_state(aename)
             periodic_state.update(do_status_param)
         do_status = ''
         do_status_param=''
