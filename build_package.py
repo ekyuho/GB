@@ -24,7 +24,7 @@ print(f'files= {cmd}')
 os.system(cmd)
 os.system(f'openssl aes-256-cbc -pbkdf2 -in {file} -out {bfile}')
 print(f'openssl aes-256-cbc -pbkdf2 -in {file} -out {bfile}')
-os.system(f'rcp {bfile} ubuntu@damoa.io:Web/public/update')
+#os.system(f'rcp {bfile} ubuntu@damoa.io:Web/public/update')
 print(f'rcp {bfile} ubuntu@damoa.io:Web/public/update')
 x=f'"cmd":"fwupdate","protocol":"HTTP","ip":"damoa.io","port":80,"path":"/update/{bfile}"'
 print(f"python3 actuate.py {ae} '{{{x}}}'")

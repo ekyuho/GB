@@ -26,19 +26,7 @@ def actuate(aename, cmd):
     r = requests.post(url, data=json.dumps(body), headers=h)
     print(url, json.dumps(r.json()))
 
-config_json = {
-  "cmd": "setmeasure",
-  "cmeasure": {
-  "sensitivity": 20,
-  "samplerate": "100",
-  "usefft": "Y",
-  "measureperiod": 300,
-  "stateperiod": 60,
-  "rawperiod": 10,
-  "st1min": 2.1,
-  "st1max": 2.6
-  }
-}
+config_json = {"cmd":"fwupdate","protocol":"HTTP","ip":"218.232.234.232","port":80,"path":"/update/ae_32345141-DI_S1M_01_X__2-2_2-2_20220523_1635.BIN"}
 '''
   "cmeasure": {
     "sensitivity": 20,
@@ -53,4 +41,4 @@ config_json = {
   }
 '''
 
-actuate("ae.11110000-AC_S1M_01_X", config_json)
+actuate("ae_32345141-DI_S1M_01_X", config_json)

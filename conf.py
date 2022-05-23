@@ -12,7 +12,7 @@ uploadport=2883
 from default import make_ae, ae, TOPIC_list, path, supported_sensors
 
 #bridge = 80061056 #placecode 설정을 위해 변수로 재설정
-bridge = 32345141 #placecode 설정을 위해 변수로 재설정
+bridge = 32345141 #placecode 설정을 위해 변수로 재설정. 실제 건교부 테스트에서 사용중인 bridge number
 #bridge = 80062056 #placecode 설정을 위해 변수로 재설정
 #bridge = 11110000
 
@@ -20,10 +20,10 @@ install= {"date":"2022-04-25","place":"금남2교(하)","placecode":F"{bridge}",
 connect={"cseip":host,"cseport":7579,"csename":csename,"cseid":csename,"mqttip":host,"mqttport":port,"uploadip":host,"uploadport":uploadport}
 
 # AC X,Y,Z can't coexist in current conf
-make_ae(F'ae.{bridge}-AC_S1M_01_X', csename, install, connect)
-#make_ae(F'ae.{bridge}-DI_S1M_01_X', csename, install, connect)
-#make_ae(F'ae.{bridge}-TP_S1M_01_X', csename, install, connect)
-#make_ae(F'ae.{bridge}-TI_S1M_01_X', csename, install, connect)
+#make_ae(F'ae.{bridge}-AC_S1M_01_X', csename, install, connect)
+make_ae(F'ae.{bridge}-DI_S1M_01_X', csename, install, connect)
+make_ae(F'ae.{bridge}-TP_S1M_01_X', csename, install, connect)
+make_ae(F'ae.{bridge}-TI_S1M_01_X', csename, install, connect)
 
 root='/home/pi/GB'
 if os.path.exists(F"{root}/config.dat"): 
