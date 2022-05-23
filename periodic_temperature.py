@@ -49,12 +49,14 @@ def find_path(cmeasure):
         print(f"do periodic elapsed os.listdir= {t2_start-t1_start:.1f} sec  filter_file= {process_time()-t2_start:.1f} sec") 
         return path+'/'+file_list[min_index]
 
-def read(aename):
+def report(aename):
     cmeasure = ae[aename]['config']['cmeasure']
 
+    '''
     if cmeasure['usefft'] in {'Y','y'}:
         print(f'no fft implementation for {aename}')
     return
+    '''
 
     data_path = find_path(cmeasure)
     now = datetime.now()
@@ -65,12 +67,8 @@ def read(aename):
     
         dmeasure = {}
         dmeasure['val'] = json_data["data"]
+        dmeasure['time'] = json_data["time"]
+        dmeasure['type'] = "S"
         ae[aename]['data']['dmeasure'] = dmeasure
 
         create.ci(aename, 'data', 'dmeasure')
-
-def report():
-    global ae
-    print('periodic_temperature')
-    for aename in ae:
-        read(aename)

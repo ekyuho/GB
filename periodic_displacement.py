@@ -25,6 +25,7 @@ root=conf.root
 # 통계의 대상이 될 파일 path를 return합니다.
 # 저장되어있는 json file의 생성일자를 모두 살펴본 후, 가장 최근에 생성된 파일을 골라냅니다.
 def find_path(cmeasure):
+    global root
     path = F"{root}/raw_data/Displacement"
     file_list = os.listdir(path)
     present_time = time.time()
@@ -45,15 +46,18 @@ def find_path(cmeasure):
                 min_index = i
         return path+'/'+file_list[min_index]
 
-def read(aename):
+def report(aename):
     cmeasure = ae[aename]['config']['cmeasure']
 
+    ''' Eh??  0523
     if cmeasure['usefft'] in {'Y','y'}:
         print(f'no fft implementation for {aename}')
     return
+    '''
 
     data_path = find_path(cmeasure)
     now = datetime.now()
+    print(f'data_path= ${data_path}')
     
     if data_path != '0':
         with open(data_path) as f:
@@ -61,13 +65,8 @@ def read(aename):
     
         dmeasure = {}
         dmeasure['val'] = json_data["data"]
+        dmeasure['time'] = json_data["time"]
+        dmeasure['type'] = "S"
         ae[aename]['data']['dmeasure'] = dmeasure
 
         create.ci(aename, 'data', 'dmeasure')
-
-def report():
-    global ae
-    print('periodic_displacement')
-    for aename in ae:
-        read(aename)
-
