@@ -474,17 +474,21 @@ def do_capture(target):
                 dtrigger['stlow']=ctrigger['st1low']
                 dtrigger['samplerate']=cmeasure['samplerate']
                 dtrigger['step']=1
-                for ac in trigger_list:
+                for ac in trigger_list: # 트리거 조건을 충족시키는 가장 첫번째 값을 val에 저장하기 위해 일치하는 값을 찾으면 break
                     if ctrigger['mode'] == 1 and ac[acc_axis] > dtrigger['sthigh']:
                         trigger_data = ac[acc_axis]
+                        break
                     elif ctrigger['mode'] == 2 and ac[acc_axis] < dtrigger['stlow']:
                         trigger_data = ac[acc_axis]
+                        break
                     elif ctrigger['mode'] == 3:
                         if ac[acc_axis] > ctrigger['sthigh'] and ac[acc_axis] < dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
+                            break
                     elif ctrigger['mode'] == 4:
                         if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
                             trigger_data = ac[acc_axis]
+                            break
                 #print(f'TEST TRIGGER with FAKE')
                 #trigger_data = 299
                 if trigger_data == "unknown":

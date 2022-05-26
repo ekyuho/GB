@@ -27,18 +27,9 @@ def actuate(aename, cmd):
     print(url, json.dumps(r.json()))
 
 config_json = {
-  "cmd": "setmeasure",
-  "cmeasure": {
-  "sensitivity": 20,
-  "samplerate": "100",
-  "usefft": "Y",
-  "measureperiod": 300,
-  "stateperiod": 60,
-  "rawperiod": 10,
-  "st1min": 2.1,
-  "st1max": 2.6
-  }
+  "cmd": "measurestop"
 }
+
 '''
   "cmeasure": {
     "sensitivity": 20,
@@ -53,4 +44,4 @@ config_json = {
   }
 '''
 
-actuate("ae.11110000-AC_S1M_01_X", config_json)
+actuate("ae.11110000-TI_S1M_01_X", config_json)
