@@ -4,63 +4,104 @@ print('\n===========')
 print(f'Verion {VERSION}')
 
 import os
-import sys
-import time
-from time import process_time
-from datetime import datetime, timedelta
 from RepeatedTimer import RepeatedTimer
 
-import periodic_acceleration
-import periodic_temperature
-import periodic_degree
-import periodic_displacement
-import create  #for Mobius resource
+import process_raw_files
+from datetime import datetime, timedelta
 import conf
+import re
 
 ae = conf.ae
-priv = datetime.now()
+root = conf.root
+myclock=''
+myclock_ok=False
 
-def sensor_type(aename):
-	return aename.split('-')[1][0:2]
+def clock():
+    global myclock, root
+    with open(f"{root}/board_time.json") as f: stime = f.read()
+    try:
+        now = datetime.strptime(stime,'%Y-%m-%d %H:%M:%S.%f')
+        print(f'sync clock {myclock} -> {now}')
+        myclock = now
+        return True
+    except:
+        print(f'failed  stime= {stime}')
+        return False
 
-# handles periodic measure (fft for AC)
+import signal
+def sigint_handler(signal, frame):
+    print()
+    print()
+    print('got restart command.  exiting...')
+    os._exit(0)
+signal.signal(signal.SIGINT, sigint_handler)
+
+next={}
+mm_old='00'
+
+# handles periodic measure and fft
 def do_periodic_data(aename):
-	global ae, priv
-	if ae[aename]['local']['measurestart']=='N':  # measure is controlled from remote user
-		print('measurestart==N, skip periodic data sending')
-		return
+    global ae, mm_old, root, next, myclock_ok, myclock
+    myclock += timedelta(seconds=1)
+    cmeasure=ae[aename]['config']['cmeasure']
 
-	now = datetime.now()
-	print(f"{now.strftime('%H:%M:%S')} +{(now-priv).total_seconds()}s {aename} periodic run creating data ci")
-	priv=now
-	stype = sensor_type(aename)
-	if stype=='AC': 
-		periodic_acceleration.report(aename)
-	elif stype=='DI':
-		periodic_displacement.report(aename)
-	elif stype=='TI':
-		periodic_degree.report(aename)
-	elif stype=='TP':
-		periodic_temperature.report(aename)
-	print('----')
-	
+    if ae[aename]['local']['measurestart']=='N':  # measure is controlled from remote user
+        print('measurestart==N, skip periodic data sending')
+        return
+
+    if not myclock_ok: myclock_ok=clock()
+    if not myclock_ok:
+        print('PANIC failed to read board time from file')
+        return
+
+    hhmmss = datetime.strftime(myclock,'%H%M%S')
+    # first since start
+    gogo = False
+    if re.match('\d\d\d00\d', hhmmss) and re.match('\d\d\d00\d', hhmmss)[0]==hhmmss:  # 정10분
+        if not aename in next:
+            print('first run since boot')
+            gogo = True
+        elif next[aename]< myclock:
+            print('시간되었고, 정 10분이다')
+            gogo = True
+
+    if gogo:
+        process_raw_files.report(aename, myclock)
+        next[aename]=myclock +  timedelta(seconds=cmeasure['measureperiod'] - 5)
+        print(f'set next measure {next[aename]}')
+        myclock_ok=clock()
+    else:
+        if hhmmss[2:4]!=mm_old:
+            if aename in next: print(f"board_time= {datetime.strftime(myclock, '%H:%M:%S')} +{(next[aename]-myclock).total_seconds()}s to next run")
+            else: print(f"board_time= {datetime.strftime(myclock, '%H:%M:%S')}")
+    mm_old=hhmmss[2:4]
+            
+    
+#복수개 AE는 아래부분에서 완결
 def run():
-	for aename in ae:
-		cmeasure=ae[aename]['config']['cmeasure']
-	
-		if 'measureperiod' in cmeasure and isinstance(cmeasure['measureperiod'],int): 
-			print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
-			interval = cmeasure['measureperiod']
-		else: 
-			print(f"cmeasure.measureperiod= defaulted 600 sec") 
-			interval = 600
-		RepeatedTimer(interval, do_periodic_data, aename)
+    global ae, myclock_ok
+    for aename in ae:
+        cmeasure=ae[aename]['config']['cmeasure']
+    
+        if not 'measureperiod' in cmeasure: cmeasure['measureperiod']=3600
+        elif not isinstance(cmeasure['measureperiod'],int): cmeasure['measureperiod']=3600
+        elif cmeasure['measureperiod']<600: cmeasure['measureperiod']=600
+        cmeasure['measureperiod'] = int(cmeasure['measureperiod']/600)*600
+        print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec") 
 
-		print(f"{aename} cmeasure.usefft= {cmeasure['usefft']}") 
-		print(f"{aename} ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
-		print(f"{aename} measurestart= {ae[aename]['local']['measurestart']}")
-	print('Ready')
-	print()
+        cmeasure['rawperiod'] = int(cmeasure['measureperiod']/60)
+        print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min")
+
+        print(f"{aename} cmeasure.usefft= {cmeasure['usefft']}") 
+        print(f"{aename} ctrigger.use= {ae[aename]['config']['ctrigger']['use']}") 
+        print(f"{aename} measurestart= {ae[aename]['local']['measurestart']}")
+
+        # check every sec
+        RepeatedTimer(1, do_periodic_data, aename)
+
+    myclock_ok=clock()
+    print('Ready')
+    print()
 
 if __name__ == '__main__':
-	run()
+    run()

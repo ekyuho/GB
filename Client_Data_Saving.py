@@ -2,7 +2,7 @@
 # 소켓 서버로 'CAPTURE' 명령어를 1초에 1번 보내, 센서 데이터값을 받습니다.
 # 받은 데이터를 센서 별로 분리해 각각 다른 디렉토리에 저장합니다.
 # 현재 mqtt 전송도 이 프로그램에서 담당하고 있습니다.
-VERSION='2-2_20220522_2330'
+VERSION='20220530_0300'
 print('\n===========')
 print(f'Verion {VERSION}')
 
@@ -18,49 +18,49 @@ import os
 import sys
 import time
 import re
-from time import process_time
+import signal
 from datetime import datetime, timedelta
+from time import process_time
 from paho.mqtt import client as mqtt
 from events import Events
 from RepeatedTimer import RepeatedTimer
 
-import versionup
-import create  #for Mobius resource
 import conf
-
-import Send_data
-import Send_file
-import Send_state
-import periodic_state
-
+import create  #for Mobius resource
+import versionup
 import make_oneM2M_resource
-
-import File_Merge
-import File_Cleaner
+import savedData
+import state
 
 broker = conf.host
 port = conf.port
 csename = conf.csename
+memory=conf.memory
 ae = conf.ae
-path = conf.path
 supported_sensors = conf.supported_sensors
 
+# head insert point  tail removing point
+
 root=conf.root
-do_trigger=""
-do_trigger_param={}
-do_status=""
-do_status_param=""
+schedule={}
+    # schedule{aename: {   
+        #'config':{},
+        #'status':{}
+        #'measure':{}
+    # }
 
 TOPIC_callback=f'/oneM2M/req/{csename}/#'
 TOPIC_response=f'/oneM2M/resp/{csename}'
 TOPIC_list = conf.TOPIC_list
 mqttc=""
 command=""
+
 # key==aename
-trigger_in_progress={}
+trigger_activated={}
 
-
-last_sensor_value={}
+# single value for all ae
+boardTime=''
+gotBoardTime = False
 
 # 다중 데이터의 경우, 어떤 data를 저장할지 결정해야한다
 acc_axis = "x" # x, y, z중 택1
@@ -68,14 +68,21 @@ deg_axis = "x" # x, y, z중 택1
 str_axis = "z" # x, y, z중 택1
 dis_channel = "ch4" # ch4, ch5중 택1
 
+def sigint_handler(signal, frame):
+    print()
+    print()
+    print('got restart command.  exiting...')
+    os._exit(0)
+signal.signal(signal.SIGINT, sigint_handler)
+
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
 
 #센서별 데이타 저장소, 디렉토리가 없으면 자동생성
 if not os.path.exists(F"{root}/raw_data"): os.makedirs(F"{root}/raw_data")
 
-for stype in supported_sensors: # {'AC', 'DI', 'TP', 'TI', 'EX'}
-    raw_path = F"{root}/raw_data/{path[stype]}"
+for stype in supported_sensors: # {'AC', 'DI', 'TP', 'TI', 'DS'}
+    raw_path = F"{root}/raw_data/{stype}"
     if not os.path.exists(raw_path): 
         print(f'created directory {raw_path}')
         os.makedirs(raw_path)
@@ -116,26 +123,48 @@ def jsonCreate(dataType, timeData, realData):
 # 받은 dict를 json으로 변환한 후, 지정된 path에 저장합니다.
 # 파일명은 기본적으로 날짜
 
-def jsonSave(path, jsonFile):
-    now = datetime.strptime(jsonFile['time'],'%Y-%m-%d %H:%M:%S.%f')
-    with open(path+"/"+now.strftime("%Y-%m-%d-%H%M%S"), 'w') as f:
-        json.dump(jsonFile, f, indent=4)
+def jsonSave(aename, jsonFile):
+    global memory
+    mymemory = memory[aename]
+    # remove microsec 2022-05-30 03:20:01.477113
+    now_time = datetime.strptime(jsonFile['time'].split('.')[0],'%Y-%m-%d %H:%M:%S')
+    if mymemory["head"] == "": 
+        mymemory["head"] = now_time - timedelta(seconds=1)
+        mymemory["tail"]= now_time
 
-def save_conf():
-    with open(F"{root}/config.dat","w") as f:
-        f.write(json.dumps(ae, ensure_ascii=False,indent=4))
-    print(f"wrote config.dat")
+    sec = int((now_time - mymemory["head"]).total_seconds())
+    if sec>10:
+        print(f'sec too big {sec} limiting to 10')
+        sec=10
+    while sec>0:
+        mymemory["head"] = mymemory["head"] + timedelta(seconds=1)
+        mymemory["file"][mymemory["head"].strftime('%Y-%m-%d-%H%M%S')]=jsonFile
+        if sec>1: print(f'json add {mymemory["head"]} len= {len(mymemory["file"])} extra')
+        else: 
+            if len(mymemory["file"])%15 ==0: print(f'json add {mymemory["head"]} len= {len(mymemory["file"])}')
+        sec -= 1
+    
+    while len(mymemory["file"])>600:
+        print(f'removing extra json > 600  {mymemory["tail"]}')
+        del mymemory["file"][mymemory["tail"].strftime('%Y-%m-%d-%H%M%S')]
+        mymemory["tail"] = mymemory["tail"] + timedelta(seconds=1)
+
+
+def save_conf(aename):
+    global ae
+    with open(F"{root}/{aename}.conf","w") as f: f.write(json.dumps(ae[aename], ensure_ascii=False,indent=4))
+    print(f"wrote {aename}.conf")
 
 def do_user_command(aename, jcmd):
-    global ae, do_trigger, do_trigger_param, do_status, do_status_param
+    global ae, schedule, root
     cmd=jcmd['cmd']
     if 'reset' in cmd:
-        file=f"{root}/config.dat"
+        file=f"{root}/{aename}.conf"
         if os.path.exists(file): 
             os.remove(file)
-            print(f'removed {file}')
+            print(f'removed {aename}.conf')
         else:
-            print(f'no {file} to delete')
+            print(f'no {aename}.conf to delete')
         os.system("sudo reboot")
     elif 'reboot' in cmd:
         os.system("sudo reboot")
@@ -151,51 +180,52 @@ def do_user_command(aename, jcmd):
         print('stop mqtt real tx')
         ae[aename]['local']['realstart']='N'
     elif cmd in {'reqstate'}:
-        do_status="goandshoot"
-        do_status_param=aename
-    elif cmd in {'settrigger'}:
-        print(f'set ctrigger= {jcmd["ctrigger"]}')
-        for x in jcmd["ctrigger"]:
-            ae[aename]["config"]["ctrigger"][x]= jcmd["ctrigger"][x]
+        # 얘는 board에서 읽어오는 부분이있다. 
+        #do_capture('STATUS')
+        schedule[aename]['reqstate']=aename
+        print(f"schedule do_capture({aename}:{schedule[aename]})")
+    elif cmd in {'settrigger', 'setmeasure'}:
+        ckey = cmd.replace('set','c')  # ctrigger, cmeasure
+        for x in jcmd[ckey]: ae[aename]["config"][ckey][x]= jcmd[ckey][x]
 
-        #do_config(aename)
-        do_trigger = do_config
-        do_trigger_param={"aename":aename, "save":'save', "cmd":cmd}
-    elif cmd in {'setmeasure'}:
-        print(f'set cmeasure= {jcmd["cmeasure"]}')
-        for x in jcmd["cmeasure"]:
-            ae[aename]["config"]["cmeasure"][x]= jcmd["cmeasure"][x]
-        save_conf()
-        if "measureperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_data')
-        if "stateperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_state')
-        if "rawperiod" in jcmd["cmeasure"]: os.system('pm2 restart Send_file')
+        if ckey=='cmeasure' and 'stateperiod' in jcmd[ckey]:
+            ae[aename]['config']['cmeasure']['stateperiod'] = jcmd[ckey][x]
+            print(f"new stateperiod= {ae[aename]['config']['cmeasure']['stateperiod']}m")
+        if ckey=='cmeasure' and 'measureperiod' in jcmd[ckey]:
+            ae[aename]['config']['cmeasure']['measureperiod'] = jcmd[ckey][x]
+            print(f"new measureperiod= {ae[aename]['config']['cmeasure']['measureperiod']}s")
+        setboard=False
+        if ckey=='cmeasure' and 'offset' in jcmd[ckey]: setboard=True
+        if ckey=='ctrigger' and len({'use','st1high', 'st1low'} & jcmd[ckey].keys()) !=0: setboard=True
+        if setboard:
+            # 얘는 board에 설정하는 부분이 있다.
+            #do_config(aename)
+            schedule[aename]['config']=ckey
+            schedule[aename]['save']='save'
+            print(f"schedule settrigger {aename} {schedule[aename]}")
+                #do_config(schedule[aename]['config'])
+        else:
+            print(f"config done without setting board")
     elif cmd in {'settime'}:
         print(f'set time= {jcmd["time"]}')
         ae[aename]["config"]["time"]= jcmd["time"]
-        save_conf()
+        save_conf(aename)
     elif cmd in {'setconnect'}:
         print(f'set {aename}/connect= {jcmd["connect"]}')
         for x in jcmd["connect"]:
             ae[aename]["connect"][x]=jcmd["connect"][x]
         create.ci(aename, 'config', 'connect')
-        save_conf()
+        save_conf(aename)
     elif cmd in {'measurestart'}:
         ae[aename]['local']['measurestart']='Y'
         print(f"set measurestart= {ae[aename]['local']['measurestart']}")
-        save_conf()
-        os.system('pm2 restart Send_data')
+        save_conf(aename)
     elif cmd in {'measurestop'}:
         ae[aename]['local']['measurestart']='N'
         print(f"set measurestart= {ae[aename]['local']['measurestart']}")
-        save_conf()
-        os.system('pm2 restart Send_data')
-    elif cmd == 'inoon':
-        cmd2=jcmd['cmd2']
-        if cmd2=='data': Send_data.do_periodic_data(aename)
-        elif cmd2=='file': Send_file.do_periodic_file(aename)
-        elif cmd2=='state': Send_state.do_periodic_state(aename)
-        else:
-            print(f'invalid cmd  {jcmd}')
+        save_conf(aename)
+    #elif cmd == 'inoon':
+    #   cmd2=jcmd['cmd2']
     else:
         print(f'invalid cmd {jcmd}')
         
@@ -294,8 +324,10 @@ def do_config(param):
     global ae
 
     aename=param["aename"]
-    cmd=param["cmd"]
+    config=param["config"]
     save=param["save"]
+
+    print(f'do_config({param})')
 
     setting={ 'AC':{'select':0x0100,'use':'N','st1high':0,'st1low':0, 'offset':0},
                 'DI':{'select':0x0800,'use':'N','st1high':0,'st1low':0, 'offset':0},
@@ -308,12 +340,12 @@ def do_config(param):
         ctrigger = ae[aename]['config']['ctrigger']
         if 'use' in ctrigger:
             setting[sensor_type(aename)]['use'] = ctrigger['use']
-            if 'st1high' in ctrigger: setting[sensor_type(aename)]['st1high']= int(ctrigger['st1high'])
-            if 'st1low' in ctrigger: setting[sensor_type(aename)]['st1low']= int(ctrigger['st1low'])
-
-    print(f"do_config seting= {setting}")
+            if 'st1high' in ctrigger: setting[sensor_type(aename)]['st1high']= ctrigger['st1high']
+            if 'st1low' in ctrigger: setting[sensor_type(aename)]['st1low']= ctrigger['st1low']
+    #print(f"do_config board seting= {setting}")
 
     if connect() == 'no': 
+        print('do_config: connect() failed. return.')
         return
     try:
         client_socket.sendall(("CONFIG"+json.dumps(setting, ensure_ascii=False)).encode())
@@ -321,7 +353,6 @@ def do_config(param):
     except OSError as msg:
         print(f"socket error {msg} exiting..")
         os._exit(0)
-
 
     rData = rData.decode('utf_8')
     jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
@@ -333,73 +364,46 @@ def do_config(param):
         create.ci(aename, 'state','')
         return
 
-
     if save=='save':
         print(f'do_config: got result {jsonData}')
-        if cmd in {'ctrigger', 'cmeasure'}:
-            create.ci(aename, 'config', cmd)
-        elif cmd == 'settime':
-            create.ci(aename, 'config', 'time')
-        save_conf()
+        if config in {'ctrigger', 'cmeasure'}: create.ci(aename, 'config', config)
+        save_conf(aename)
 
-def do_trigger_followup(aename, _trigtime):
+def do_trigger_followup(aename):
     global ae,root,path
-    print(f'trigger_followup {aename}')
-    trigger_in_progress[aename]=0
+
+    #print(f'trigger_followup {aename}')
     dtrigger=ae[aename]['data']['dtrigger']
-    stype = sensor_type(aename)
-    #_trigtime='2022-05-22 00:17:33.12122'
-    trigtime = datetime.strptime(_trigtime, "%Y-%m-%d %H:%M:%S.%f")
-    print(f'trigtime=  {trigtime}')
-
     ctrigger = ae[aename]['config']['ctrigger']
-    raw_path = F"{root}/raw_data/{path[stype]}"
-    print(f"raw_path= {root}/raw_data/{path[stype]}")
+    stype = sensor_type(aename)
+    trigger= datetime.strptime(dtrigger['time'],'%Y-%m-%d %H:%M:%S.%f')
+    mymemory=memory[aename]
 
-    data_path_list = list()
-    j=0
-    for i in range(0,100):
-        fname = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
-        if os.path.exists(f'{raw_path}/{fname}'):
-            print(f'file ok -{i} {raw_path}/{fname}')
-            data_path_list.append(f'{raw_path}/{fname}')
-            j +=1
-            start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
-            if j>= ctrigger['bfsec']:
-                print(f"done i= {i} bfsec= {ctrigger['bfsec']}")
-                start = datetime.strftime(trigtime - timedelta(seconds=i), "%Y-%m-%d-%H:%M:%S")
-                break;
-        else:
-            print(f'no file -{i} {raw_path}/{fname}')
-    j=0
-    for i in range(1, 100):
-        fname = datetime.strftime(trigtime + timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
-        if os.path.exists(f'{raw_path}/{fname}'):
-            print(f'file ok +{i} {fname}')
-            data_path_list.append(f'{raw_path}/{fname}')
-            j+=1
-            if j>= ctrigger['afsec']:
-                print(f"done afsec= {ctrigger['afsec']}")
-                break;
-        else:
-            print(f'no file +{i} {raw_path}/{fname}')
-    print(f'found {len(data_path_list)} files')
-    data_path_list.sort()
-
-    # path에 존재하는 모든 data를 열어보고, 보낼 데이터 list를 작성한다.
-    # 정렬된 data_path_list가 들어오기 때문에, 가장 처음 들어오는 데이터가 가장 오래된 데이터. 즉, start data이다.
     data = list()
-    for file in range(len(data_path_list)):
-        with open(data_path_list[file], "rb") as f:
-            one_file = json.load(f)
-            if isinstance(one_file['data'], list): data.extend(one_file["data"])
-            else: data.append(one_file["data"])
+    start=""
+    for i in range(-ctrigger['bfsec'],ctrigger['afsec']):
+        key = datetime.strftime(trigger + timedelta(seconds=i), "%Y-%m-%d-%H%M%S")
+        try:
+            json_data = mymemory["file"][key]
+            start=datetime.strftime(trigger + timedelta(seconds=i), "%Y-%m-%d %H:%M:%S.%f")
+        except:
+            print(f' skip i={i}', end='')
+            continue
+        if isinstance(json_data['data'], list): data.extend(json_data["data"])
+        else: data.append(json_data["data"]) 
+    
+    #print(f'found {len(data_path_list)} files')
 
     dtrigger['count']=len(data)
-    dtrigger['data']=data
+    i=0
+    dtrigger['data']='mobius can handle up to 6500 items. so data0, data1 are provided'
+    for i in range(len(data)):
+        if i*5000+5000>len(data): break
+        dtrigger[f'data{i}']=data[i*5000:i*5000+5000]
+    dtrigger[f'data{i}']=data[i*5000:]
     dtrigger["start"] = start
     create.ci(aename, 'data', 'dtrigger')
-    print(f"comiled trigger data: {len(data)} bytes")
+    print(f"comiled trigger data: {len(data)} bytes for bfsec+afsec= {ctrigger['bfsec']+ctrigger['afsec']}")
 
 session_active = False
 def watchdog():
@@ -413,8 +417,9 @@ RepeatedTimer(60, watchdog)
 
 def do_capture(target):
     global client_socket, mqtt_measure, time_old
-    global do_trigger, do_trigger_param, session_active
+    global trigger_activated, session_active
     global ae #samplerate 조정을 위한 값. 동적 데이터에만 적용되는 것으로 한다
+    global boardTime, gotBoardTime
 
     t1_start=process_time()
     #print('do capture')
@@ -430,118 +435,129 @@ def do_capture(target):
     t2_start=process_time()
     rData = rData.decode('utf_8')
     try:
-        jsonData = json.loads(rData) # jsonData : 서버로부터 받은 json file을 dict 형식으로 변환한 것
+        j = json.loads(rData) # j : 서버로부터 받은 json file을 dict 형식으로 변환한 것
     except ValueError:
-        print("socket troubled. exiting.")
-        os._exit(0)
+        print("invalid data from socket skip.")
+        return
+
     now=datetime.now()
+    # 모든 Server 메시지에는 'Status'가 있다
+    if 'Status' not in j:
+        print(f'found no Status {j} at {now.strftime("%H:%M:%S")}')
+        return
 
     session_active=True
-    if jsonData["Status"] == "False":
-        #print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s since last data_not_ready')
-        print(f' ** no data {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s') 
+    if j['Status']=='False':
+        #print(f"{j} at {now.strftime('%H:%M:%S')} +{(now-time_old).total_seconds():.1f}s fetching speed won sensor board speed")
         time_old=now
         return
 
+    if 'Timestamp' not in j:
+        if j['Status']!='Ok':
+            print(f'no Timestamp but got Ok {j} at {now.strftime("%H:%M:%S")}')
+        else:
+            print(f'no Timestamp {j} at {now.strftime("%H:%M:%S")}')
+        return
+
     if target == 'STATUS':
-        with open('state.json', 'w') as f:
-            json.dump(jsonData, f)
-        print(f'status= {jsonData}')
+        statusJson=j
         return
 
 
     #else target == 'CAPTURE'    
-    #print('got=',jsonData)
-    j=jsonData
+    #print('got=',j)
+
+    boardTime = datetime.strptime(j['Timestamp'],'%Y-%m-%d %H:%M:%S.%f')
+    if not gotBoardTime:
+        gotBoardTime = True
+        schedule_first()
+
+    #print(f"trigger= {j['trigger']}")
+
     for aename in ae:
-        if 'trigger' in j and sensor_type(aename) in j['trigger'] and j['trigger'][sensor_type(aename)]=='1':
-            if ae[aename]['config']['ctrigger']['use'] not in {'Y','y'}:
-                print(f"{aename} use trigger= {ae[aename]['config']['ctrigger']['use']}")
-                continue
-            msg = f'trigger {aename}'
-            if aename in trigger_in_progress and trigger_in_progress[aename]==1:
-                continue
+        ctrigger=ae[aename]['config']['ctrigger']
+        cmeasure=ae[aename]['config']['cmeasure']
+        dtrigger=ae[aename]['data']['dtrigger']
+        #print(f"aename= {aename} stype= {sensor_type(aename)} use= {ctrigger['use']}")
 
-            if sensor_type(aename) == "AC": # 동적 데이터의 경우, 트리거 전초와 후초를 고려해 전송 시행
-                trigger_list = jsonData["Acceleration"]
-                trigger_data = "unknown"
-                ctrigger=ae[aename]['config']['ctrigger']
-                dtrigger=ae[aename]['data']['dtrigger']
-                cmeasure=ae[aename]['config']['cmeasure']
-                dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
-                dtrigger['mode']=ctrigger['mode']
-                dtrigger['sthigh']=ctrigger['st1high']
-                dtrigger['stlow']=ctrigger['st1low']
-                dtrigger['samplerate']=cmeasure['samplerate']
-                dtrigger['step']=1
-                for ac in trigger_list: # 트리거 조건을 충족시키는 가장 첫번째 값을 val에 저장하기 위해 일치하는 값을 찾으면 break
-                    if ctrigger['mode'] == 1 and ac[acc_axis] > dtrigger['sthigh']:
+        # aename에 트리거 이미 진행중
+        if aename in trigger_activated: # waiting for afsec
+            print(f'  trigger[{aename}]= {trigger_activated[aename]}')
+            if trigger_activated[aename]==0:
+                #print(f'follow_up trigger')
+                do_trigger_followup(aename)
+                del trigger_activated[aename]
+                continue
+            else:
+                trigger_activated[aename] -= 1
+        else:
+            print()
+
+        if j['trigger'][sensor_type(aename)]=='0':
+            continue
+        elif ctrigger['use'] not in {'Y','y'}:
+            #print(f"{aename} use trigger= {ctrigger['use']}")
+            continue
+
+        # new trigger
+        if sensor_type(aename) == "AC": # 동적 데이터의 경우, 트리거 전초와 후초를 고려해 전송 시행
+            trigger_list = j["AC"]
+            trigger_data = "unknown"
+            for ac in trigger_list: # 트리거 조건을 충족시키는 가장 첫번째 값을 val에 저장하기 위해 일치하는 값을 찾으면 break
+                if ctrigger['mode'] == 1 and ac[acc_axis] > ctrigger['st1high']:
+                    trigger_data = ac[acc_axis]
+                    break
+                elif ctrigger['mode'] == 2 and ac[acc_axis] < ctrigger['st1low']:
+                    trigger_data = ac[acc_axis]
+                    break
+                elif ctrigger['mode'] == 3:
+                    if ac[acc_axis] > ctrigger['st1high'] and ac[acc_axis] < ctrigger['st1low']:
                         trigger_data = ac[acc_axis]
                         break
-                    elif ctrigger['mode'] == 2 and ac[acc_axis] < dtrigger['stlow']:
+                elif ctrigger['mode'] == 4:
+                    if ac[acc_axis] < ctrigger['st1high'] and ac[acc_axis] > ctrigger['st1low']:
                         trigger_data = ac[acc_axis]
                         break
-                    elif ctrigger['mode'] == 3:
-                        if ac[acc_axis] > ctrigger['sthigh'] and ac[acc_axis] < dtrigger['stlow']:
-                            trigger_data = ac[acc_axis]
-                            break
-                    elif ctrigger['mode'] == 4:
-                        if ac[acc_axis] < ctrigger['sthigh'] and ac[acc_axis] > dtrigger['stlow']:
-                            trigger_data = ac[acc_axis]
-                            break
-                #print(f'TEST TRIGGER with FAKE')
-                #trigger_data = 299
-                if trigger_data == "unknown":
-                    #print(f"{msg} -> but with unknown value ****")
-                    pass
-                else:
-                    dtrigger['val'] = trigger_data
-                    #print(f"got trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
-                    if isinstance(ctrigger['afsec'],int) and ctrigger['afsec']>0:
-                        # add additional 5 sec just in case
-                        Timer(ctrigger['afsec']+5, do_trigger_followup, [aename, jsonData["Timestamp"]]).start() #시간이 오버해도 좋으니 데이터 개수를 딱 맞춰달라는 요청이 있었음...
-                        print(f"{msg} -> set trigger followup in {ctrigger['afsec']} sec")
-                        trigger_in_progress[aename]=1
-                    else:
-                        print(f"invalid afsec= {ctrigger['afsec']}")
+
+            if trigger_data == "unknown":
+                print(f" -> trigger not for me")
+                continue
+                
+            dtrigger['val'] = trigger_data
+            print(f"  got AC trigger {aename} bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+            if isinstance(ctrigger['afsec'],int) and ctrigger['afsec']>0:
+                trigger_activated[aename]=ctrigger['afsec']
+            else:
+                print(f"invalid afsec= {ctrigger['afsec']}")
+        else:
+            # 정적 데이터의 경우, 트리거 발생 당시의 데이터를 전송한다
+            print(f"got non-AC trigger {aename}  bfsec= {ctrigger['bfsec']}  afsec= {ctrigger['afsec']}")
+            dtrigger['start']=j["Timestamp"]
+            dtrigger['count'] = 1
             
-            else: # 정적 데이터의 경우, 트리거 발생 당시의 데이터를 전송한다
+            if sensor_type(aename) == "DI": data = j["DI"][dis_channel]+cmeasure['offset']
+            elif sensor_type(aename) == "TP": data = j["TP"]+cmeasure['offset']
+            elif sensor_type(aename) == "TI": data = j["TI"][deg_axis]+cmeasure['offset'] # offset이 있는 경우, 합쳐주어야한다
+            else: data = "nope"
 
-                ctrigger=ae[aename]['config']['ctrigger']
-                cmeasure=ae[aename]['config']['cmeasure']
-                dtrigger=ae[aename]['data']['dtrigger']
-                dtrigger['time']=jsonData["Timestamp"] # 트리거 신호가 발생한 당시의 시각
-                dtrigger['start']=jsonData["Timestamp"]
-                dtrigger['mode']=ctrigger['mode']
-                dtrigger['sthigh']=ctrigger['st1high']
-                dtrigger['stlow']=ctrigger['st1low']
-                dtrigger['samplerate']=cmeasure['samplerate']
-                dtrigger['count'] = 1
-                dtrigger['step']=1
-                
-                data = 0
+            #정말로 val값이 trigger를 만족시키는지 check해야함. 추후 추가.
+            dtrigger['val'] = data
 
-                if sensor_type(aename) == "DI":
-                    data = jsonData["Displacement"][dis_channel]+cmeasure['offset']
-                elif sensor_type(aename) == "TP":
-                    data = jsonData["Temperature"]+cmeasure['offset']
-                elif sensor_type(aename) == "TI":
-                    data = jsonData["Degree"][deg_axis]+cmeasure['offset'] # offset이 있는 경우, 합쳐주어야한다
-                else:
-                    data = "nope"
+        dtrigger['time']=j["Timestamp"] # 트리거 신호가 발생한 당시의 시각
+        dtrigger['mode']=ctrigger['mode']
+        dtrigger['sthigh']=ctrigger['st1high']
+        dtrigger['stlow']=ctrigger['st1low']
+        dtrigger['step']=1
+        dtrigger['samplerate']=cmeasure['samplerate']
 
-                #정말로 val값이 trigger를 만족시키는지 check해야함. 추후 추가.
+        # AC need afsec
+        if sensor_type(aename) != "AC":
+            create.ci(aename, "data", "dtrigger") # 정적 트리거 전송은 따로 do_trigger_followup을 실행하지 않는다.
+            print("sent trigger for {aename}")
 
-                dtrigger['val'] = data
-                print(f"got trigger {aename}")
-                print("trigger data uploading...")
-                create.ci(aename, "data", "dtrigger") # 정적 트리거 전송은 따로 do_trigger_followup을 실행하지 않는다.
-                print("trigger data has sent")
-                
+        
 
-    if not "Timestamp" in jsonData:
-        print(f'****** no Timestamp  {jsonData}')
-        return
+    # end of trigger            
 
     offset_dict = {
         "AC":0,
@@ -563,17 +579,17 @@ def do_capture(target):
         elif type == "TI" and 'offset' in cmeasure:
             offset_dict["TI"] = cmeasure['offset']
 
-    Time_data = jsonData["Timestamp"]
-    Temperature_data = jsonData["Temperature"] + offset_dict["TP"]
-    Displacement_data = jsonData["Displacement"][dis_channel] + offset_dict["DI"]
+    Time_data = j["Timestamp"]
+    Temperature_data = j["TP"] + offset_dict["TP"]
+    Displacement_data = j["DI"][dis_channel] + offset_dict["DI"]
     
     acc_list = list()
     str_list = list()
     
-    for i in range(len(jsonData["Acceleration"])):
-        acc_list.append(jsonData["Acceleration"][i][acc_axis] + offset_dict["AC"])
-    for i in range(len(jsonData["Strain"])):
-        str_list.append(jsonData["Strain"][i][str_axis]) #offset 기능 구현되어있지 않음
+    for i in range(len(j["AC"])):
+        acc_list.append(j["AC"][i][acc_axis] + offset_dict["AC"])
+    for i in range(len(j["DS"])):
+        str_list.append(j["DS"][i][str_axis]) #offset 기능 구현되어있지 않음
         
     #print(F"acc : {acc_list}")
     #samplerate에 따라 파일에 저장되는 data 조정
@@ -604,15 +620,15 @@ def do_capture(target):
             #print(acc_list)
     Acceleration_data = acc_list
     Strain_data = str_list
-    Degree_data = jsonData["Degree"][deg_axis]+ offset_dict["TI"]
+    Degree_data = j["TI"][deg_axis]+ offset_dict["TI"]
     
     # 센서의 특성을 고려해 각 센서 별로 센서 data를 담은 dict 생성
     raw_json={}
-    raw_json['TI'] = jsonCreate(path['TI'], Time_data, Degree_data)
-    raw_json['TP'] = jsonCreate(path['TP'], Time_data, Temperature_data)
-    raw_json['DI'] = jsonCreate(path['DI'], Time_data, Displacement_data)
-    raw_json['AC'] = jsonCreate(path['AC'], Time_data, Acceleration_data)
-    raw_json['EX'] = jsonCreate(path['EX'], Time_data, Strain_data)
+    raw_json['TI'] = jsonCreate('TI', Time_data, Degree_data)
+    raw_json['TP'] = jsonCreate('TP', Time_data, Temperature_data)
+    raw_json['DI'] = jsonCreate('DI', Time_data, Displacement_data)
+    raw_json['AC'] = jsonCreate('AC', Time_data, Acceleration_data)
+    raw_json['DS'] = jsonCreate('DS', Time_data, Strain_data)
     
     
     # mqtt 전송을 시행하기로 했다면 mqtt 전송 시행
@@ -633,39 +649,32 @@ def do_capture(target):
     # 내 ae에 지정된 sensor type정보만을 저장
     for aename in ae:
         stype = sensor_type(aename)
-        if not aename in last_sensor_value: last_sensor_value[aename]={}
-        jsonSave(F"{root}/raw_data/{path[stype]}", raw_json[stype])
-        last_sensor_value[aename][stype]=raw_json[stype]
-        if stype == 'AC': print(f"saved {stype} {len(raw_json[stype]['data'])} data")
+        jsonSave(aename, raw_json[stype])
+        #if stype == 'AC': print(f"saved {stype} {len(raw_json[stype]['data'])} data")
 
-    #print(f'CAPTURE {now.strftime("%H:%M:%S:%f")} capture,process={(t2_start-t1_start)*1000:.1f}+{(process_time()-t2_start)*1000:.1f}ms got {len(rData)}B {rData[:50]} ...')
+        if schedule[aename]['measure'] < boardTime:
+            savedData.savedJson(aename,  schedule[aename]['measure'])
+            schedule_measureperiod()
 
 def do_tick():
-    global do_trigger, do_trigger_param, do_status, do_status_param
+    global schedule, boardTime
     do_capture('CAPTURE')
-    if not do_trigger=="":
-        print('do_trigger')
-        do_trigger(do_trigger_param)
-        do_trigger=""
-    if not do_status=="":
-        do_capture('STATUS')
-        if do_status=='go': 
-            do_status=""
-            return
 
-        print(f"reqstate create state ci for {do_status_param}")
-        if do_status_param == "":
-            print('PANIC... do_status_param==null')
-        else:
-            periodic_state.update(do_status_param)
-        do_status = ''
-        do_status_param=''
 
-def do_periodic_status():
-    global do_status, do_status_param
-    do_status = 'go' 
-    do_status_param=""
+    for aename in schedule:
+        if 'config' in schedule[aename]: 
+            do_config(schedule[aename]['config'])
+            del schedule[aename]['config']
 
+        elif 'reqstate' in schedule[aename]:
+            do_capture('STATUS')
+            state.report(aename)
+            del schedule[aename]['reqstate']
+
+        if schedule[aename]['state'] < boardTime:
+            state.report(aename)
+            schedule_state()
+        
 
 def startup():
     global ae
@@ -673,8 +682,57 @@ def startup():
     for aename in ae:
         ae[aename]['info']['manufacture']['fwver']=VERSION
         create.allci(aename, {'config','info'})
-        do_config({'aename':aename, 'cmd':'','save':'nosave'})
-        RepeatedTimer(ae[aename]['config']['cmeasure']['stateperiod']*60, do_periodic_status)
+
+    #this need once for one board
+    do_config({'aename':aename, 'config':'','save':'nosave'})
+
+
+# schedule measureperiod
+def schedule_measureperiod():
+    global ae, schedule, boardTime
+    for aename in ae:
+        cmeasure=ae[aename]['config']['cmeasure']
+
+        if not 'measureperiod' in cmeasure: cmeasure['measureperiod']=3600
+        elif not isinstance(cmeasure['measureperiod'],int): cmeasure['measureperiod']=3600
+        elif cmeasure['measureperiod']<600: cmeasure['measureperiod']=600
+        cmeasure['measureperiod'] = int(cmeasure['measureperiod']/600)*600
+        print(f"cmeasure.measureperiod= {cmeasure['measureperiod']} sec")
+    
+        cmeasure['rawperiod'] = int(cmeasure['measureperiod']/60)
+        print(f"cmeasure.rawperiod= {cmeasure['rawperiod']} min")
+
+        btime = boardTime+timedelta(seconds=cmeasure['measureperiod'])-timedelta(seconds=1)
+        schedule[aename]['measure']= btime
+        print(f'measure schedule[{aename}] at {btime}')
+
+def schedule_state():
+    global ae, schedule, boardTime
+    for aename in ae:
+        cmeasure=ae[aename]['config']['cmeasure']
+
+        if not 'stateperiod' in cmeasure: cmeasure['stateperiod']=60 #min
+        elif not isinstance(cmeasure['stateperiod'],int): cmeasure['stateperiod']=60
+        print(f"cmeasure.stateperiod= {cmeasure['stateperiod']} min")
+
+        btime = boardTime+timedelta(minutes=cmeasure['stateperiod']) -timedelta(seconds=1)
+        schedule[aename]['state']= btime
+        print(f'state schedule[{aename}] at {btime}')
+
+def schedule_first():
+    global ae, schedule, boardTime
+    for aename in ae:
+        #obtime = boardTime+timedelta(minutes=10)
+        obtime = boardTime+timedelta(minutes=1)
+        #btime = obtime[:15]+'0'+obtime[16:]
+        btime = obtime
+        schedule[aename]['measure']= btime
+        schedule[aename]['state']= btime
+        print(f'set first schedule for measure, state at {boardTime} -> {btime}')
+
+for aename in ae:
+    memory[aename]={"file":{}, "head":"","tail":""}
+    schedule[aename]={}
 
 
 print('Ready')

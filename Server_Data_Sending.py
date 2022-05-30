@@ -20,6 +20,14 @@ import re
 import os
 from RepeatedTimer import RepeatedTimer
 
+import signal
+def sigint_handler(signal, frame):
+    print()
+    print()
+    print('got restart command.  exiting...')
+    os._exit(0)
+signal.signal(signal.SIGINT, sigint_handler)
+
 print('==================')
 print('Version 1.0')
 
@@ -80,6 +88,7 @@ def sync_time():
     status_data_i_got = spi.xfer2([0x0]*14)
 
     BaseTimeStamp = status_data_i_got[3] << 24 | status_data_i_got[2] << 16 | status_data_i_got[1] << 8 | status_data_i_got[0]  - TimeCorrection
+    print(f'syc_time BaseTime= {BaseTime}  BaseTimeStamp= {BaseTimeStamp}')
 
 # int Twos_Complement(string data, int length)
 # bit data를 int data로 바꾸어줍니다.
@@ -134,7 +143,7 @@ def status_trigger_return(hex_data):
     is_triggered = {
         "TP":tem_bit,
         "DI":dis_bit,
-        "Strain":str_bit,
+        "DS":str_bit,
         "TI":deg_bit,
         "AC":acc_bit
     }
@@ -237,7 +246,7 @@ Offset={'AC':0,'DI':0,'TI':0,'TP':0}
 def data_receiving():
     global console_msg
     global Offset
-    #print("s:0x24")		# request header
+    #print("s:0x24")        # request header
     rcv1 = spi.xfer2([0x24])
     #print("header data signal")
     time.sleep(ds)
@@ -266,7 +275,7 @@ def data_receiving():
         return fail_data
         
     if isReady: #only send data if data is ready
-        #print("s:"+ "0x26")		# request static
+        #print("s:"+ "0x26")        # request static
         rcv3 = spi.xfer2([0x26])
         #print(rcv3)
         #print("static sensor data signal")
@@ -282,12 +291,12 @@ def data_receiving():
         Displacement_ch4 = dis_conversion(rcv4[8:12]) + Offset['DI']
         # 식을 dis_conversion으로 변경하여 해결하였음
         Displacement_ch5 = dis_conversion(rcv4[12:]) + Offset['DI']
-        json_data["Degree"] = {"x":degreeX, "y":degreeY, "z":degreeZ}
-        json_data["Temperature"] = Temperature
-        json_data["Displacement"] = {"ch4":Displacement_ch4, "ch5":Displacement_ch5}
+        json_data["TI"] = {"x":degreeX, "y":degreeY, "z":degreeZ}
+        json_data["TP"] = Temperature
+        json_data["DI"] = {"ch4":Displacement_ch4, "ch5":Displacement_ch5}
         time.sleep(ds)
  
-        #print("s:"+ "0x25")        # request data	
+        #print("s:"+ "0x25")        # request data    
         rcv5 = spi.xfer2([0x25])
         #print(rcv5)
         #print("Dynamic sensor data signal")
@@ -316,9 +325,9 @@ def data_receiving():
             strain_list.append({"x":sx, "y":sy, "z":sz})
             #strain_list.append([sx, sy, sz])           
 
-        json_data["Acceleration"] = acc_list
+        json_data["AC"] = acc_list
         #print(acc_list)
-        json_data["Strain"] = strain_list
+        json_data["DS"] = strain_list
         time.sleep(d2)
         s1 = 'trigger='
         for x in json_data['trigger']:
@@ -410,7 +419,7 @@ def get_status_data():
     solar, battery, vdd = status_conversion(solar, battery, vdd)
 
     status_data={}
-    status_data["timestamp"] = time_conversion( timestamp ) # board uptime 
+    status_data["Timestamp"] = time_conversion( timestamp ) # board uptime 
     status_data["resetFlag"] = status_data_i_got[5]  << 8  | status_data_i_got[4]   
     status_data["solar"]     = solar #
     status_data["battery"]   = battery #battery %
@@ -438,12 +447,6 @@ def do_command(command, param):
     elif command=="RESET":
         flag = False
     
-    # 'upload' doesn't reach here
-    #elif command=="UPLOAD":
-        '''
-        sending_data = json.dumps(data, ensure_ascii=False)
-        '''
-
     elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
@@ -469,7 +472,7 @@ def do_command(command, param):
         rcv = spi.xfer2(sending_config_data)
         ok_data = {"Status":"Ok"}
         sending_data = json.dumps(ok_data, ensure_ascii=False)
-        print('CONFIG returns ', sending_data)
+        #print('CONFIG returns ', sending_data)
     else:
         print('WRONG COMMAND: ', command)
         fail_data = {"Status":"False","Reason":"Wrong Command"}
@@ -477,7 +480,7 @@ def do_command(command, param):
     
     if flag:
         #sending_data += '\n\n'
-	    client_socket.sendall(sending_data.encode()) # encode UTF-8
+        client_socket.sendall(sending_data.encode()) # encode UTF-8
         #print("Server -> Client :  ", sending_data)
     
 #
@@ -522,9 +525,13 @@ sync_time()
 while(1) :
     # read Command
     if select.select([client_socket], [], [], 0.01)[0]: #ready? return in 0.01 sec
-        data = client_socket.recv(1024).decode().strip()
-        if not data:
-            print('socket troubled. exiting..')
+        try:
+            data = client_socket.recv(1024).decode().strip()
+            if not data:
+                print('socket troubled. exiting..')
+                os._exit(0)
+        except:
+            print('socket raised exception. exiting..')
             os._exit(0)
         m=re.match("(\w+)(.*)", data)
         #print(m.groups())

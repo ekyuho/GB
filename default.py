@@ -1,12 +1,13 @@
 #####################################################################
-
-supported_sensors = {'AC', 'DI', 'TP', 'TI', 'EX'}
+#                   AC:Accelerator 가속도, DI:Displacement 변위, Temperature, TI:Degree 경사, DS:Distortion 변형률
+supported_sensors = {'AC', 'DI', 'TP', 'TI', 'DS'}
 
 #####################################################################
 #### 다음 섹션은 센서별 generic factory 초기설정값
 #####################################################################
 config_ctrigger={}
-config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":10,"afsec":10}
+#                                                                           30s          60s
+config_ctrigger["AC"]={"use":"Y","mode":1,"st1high":200,"st1low":-2000,"bfsec":30,"afsec":60}
 config_ctrigger["DI"]={"use":"N","mode":3,"st1high":700,"st1low":100,"bfsec":0,"afsec":1}
 config_ctrigger["TP"]={"use":"N","mode":3,"st1high":60,"st1low":-20,"bfsec":0,"afsec":1}
 config_ctrigger["TI"]={"use":"N","mode":3,"st1high":5,"st1low":-5,"bfsec":0,"afsec":1}
@@ -19,8 +20,8 @@ config_cmeasure['DI']={'sensitivity':24,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TP']={'sensitivity':16,'samplerate':"1",'usefft':'N'}
 config_cmeasure['TI']={'sensitivity':20,'samplerate':"1",'usefft':'N'}
 
-#                                    sec             min            min
-cmeasure2={'offset':0,'measureperiod':600,'stateperiod':60,'rawperiod':60,
+#                                    sec 600          min 60           min 60
+cmeasure2={'offset':0,'measureperiod':3600,'stateperiod':60,'rawperiod':60,
         'st1min':2.1, 'st1max':2.6, 'st2min':3.01, 'st2max':4.01, 'st3min':5.01, 'st3max':6.01, 'st4min':7.01, 'st4max':8.01,
         'st5min':9.01, 'st5max':10.01, 'st6min':11.01, 'st6max':12.01, 'st7min':13.01, 'st7max':14.01, 'st8min':15.01, 'st8max':16.01,
         'st9min':17.01, 'st9max':18.01, 'st10min':19.01, 'st10max':20.01}
@@ -87,14 +88,13 @@ def make_ae(aename, csename, install, config_connect):
     ae[aename]['data']['dmeasure'].update(data_dmeasure)
     TOPIC_list[aename]=F'/{csename}/{aename}/realtime'
     ae[aename]['local']={'printtick':'N'}
-    if sensor_type in {'AC', 'DI', 'TI', 'TP'}:   # 얘만 mqtt default 로  가동
+    if sensor_type in {'AC', 'DI', 'TI', 'TP', 'DS'}:   # 얘만 mqtt default 로  가동
         ae[aename]['local']['realstart']='Y'
         ae[aename]['local']['measurestart'] ='Y' 
     else:
         ae[aename]['local']['realstart']='N'
         ae[aename]['local']['measurestart']='N'
+    ae[aename]['local']['name']=aename
 
 ctrl={'cmd':''}
 # 'reset','reboot  synctime','fwupdate','realstart','realstop','reqstate','settrigger','settime','setmeasure','setconnect','measurestart','meaurestop'
-
-path={'AC':'Acceleration', 'DI':'Displacement', 'TP':'Temperature', 'TI': 'Degree', 'EX':'Strain'}

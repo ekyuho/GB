@@ -20,7 +20,6 @@ slack=""
 
 def ci(aename, cnt, subcnt):
     global ae
-    now = datetime.now()
     h={
         "Accept": "application/json",
         "X-M2M-RI": "12345",
@@ -40,8 +39,8 @@ def ci(aename, cnt, subcnt):
     else:
         url = F"http://{host}:7579/{csename}/{aename}/{cnt}"
         body["m2m:cin"]["con"] = ae[aename][cnt]
-    #body["m2m:cin"]["con"]["time"]=now.strftime("%Y-%m-%d %H:%M:%S")
-    #print(f'{url} {json.dumps(body)[:40]}')
+    print(f'{url} {json.dumps(body)[:50]}...')
+    #print(f'{url}')
               
     gotok=False
     try:
@@ -52,15 +51,8 @@ def ci(aename, cnt, subcnt):
         else:
             if subcnt == "": x=''
             else: x=f'/{subcnt}'
-            if len(json.dumps(r.json()["m2m:cin"]["con"])) < 100:
-                print(f'  created ci {cnt}{x}/{r.json()["m2m:cin"]["rn"]} \n    ==> {r.json()["m2m:cin"]["con"]}')
-            else:
-                print(f'  created ci {cnt}{x}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:160]} ...')
+            print(f'  created ci {cnt}{x}/{r.json()["m2m:cin"]["rn"]} \n    ==> {json.dumps(r.json()["m2m:cin"]["con"])[:50]}...')
             gotok=True
-            #cin file save
-            #now=datetime.now()
-            #file_name = now.strftime("%H-%M-%S")
-            #with open(F"contentInstance - {file_name}.txt", "w") as f: f.write(json.dumps(body["m2m:cin"]["con"], indent = 4))
     except requests.exceptions.RequestException as e:
         print(f'failed to ci {e}')
 
@@ -74,6 +66,7 @@ def ci(aename, cnt, subcnt):
         #print(url2)
         try:
             r = requests.get(url2)
+            print('sent slack')
         except requests.exceptions.RequestException as e:
             print(f'failed to slack {e}')
 
