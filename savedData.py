@@ -10,12 +10,10 @@ from datetime import datetime, timedelta
 from time import process_time
 import numpy as np
 import requests
+import threading
 
 import create
-import conf
-ae = conf.ae
-root=conf.root
-memory=conf.memory
+from conf import ae, root, memory
 
 def sensor_type(aename):
     return aename.split('-')[1][0:2]
@@ -64,13 +62,14 @@ def FFT(cmeasure, data_list):
 
     return data_FFT_X[data_FFT_list.index(peak)]
 
-# def void read(string aename)
-# 입력받은 aename을 가진 oneM2M 서버에 통계값을 포함한 컨텐트인스턴스 생성 명령을 보냅니다.
-def savedJson(aename, btime):
+# raw_json 은 file로 저장준비가된 모든 센서들 통합 데이타
+def savedJson(aename,raw_json, t1_start, t1_msg):
     global root, ae, memory
-    #print(f'create ci for {aename}')
+    print(f'create ci for {aename}')
     cmeasure = ae[aename]['config']['cmeasure']
     save_path = F"{root}/merged_data/{sensor_type(aename)}"
+    j = raw_json[sensor_type(aename)]
+    boardTime = datetime.strptime(j['time'],'%Y-%m-%d %H:%M:%S')
     if not os.path.exists(save_path): os.makedirs(save_path)
 
     mymemory=memory[aename]
@@ -78,59 +77,117 @@ def savedJson(aename, btime):
     print('measure time begin: 0')
     
     data_list = list()
-    print(f'{mymemory["file"].keys()}')
+    recent_data = ""
+    print(f'{aename} processing {len(mymemory["file"])} records(sec)')
 
-    for i in range(0, 600): # 10분간 기간
-        key = (btime - timedelta(seconds=i)).strftime("%Y-%m-%d-%H%M%S")
+    # boardTime 기준으로, 아직 지금 이순간 1초 데이타는 hold되고있지, Json 으로 저정되어있지 않다. 그래서 1부터.
+    print(f'boardTime= {boardTime} ')
+    for i in range(1, 601): # 10분간 기간
+        key = (boardTime - timedelta(seconds=i)).strftime("%Y-%m-%d-%H%M%S")
+        # 가장 최근 데이터를 뽑아낸다, i=0이 정시 boardData 를 처리하기전으로 수정
+        if recent_data == "":
+            try:
+                recent_data = mymemory["file"][key]
+                print(f' got recent_data with {key}')
+            except:
+                print(f' failed recent_data len(mymemory["file"][{key}]= len(mymemory["file"][{key}])')
+        # 데이타가 600개가 되지 않을 경우도 있다. 그래서 계속 값지정. 마지막에 지정된 값이 시작시간이 된다.
+        start_time = boardTime - timedelta(seconds=i)
+
         if not key in mymemory["file"]:
-            print(f'no key= {key} i= {i}')
+            print(f'{aename} no key= {key} i= {i}')
             break
         json_data = mymemory["file"][key]
         if isinstance(json_data['data'], list): data_list.extend(json_data["data"])
         else: data_list.append(json_data["data"])
-        start_time = datetime.strftime(btime - timedelta(seconds=i), "%Y-%m-%d %H:%M:%S.%f")
 
-    print(f"len(data)= {len(data_list)} elapsed= {process_time()-point1:.1f}")
-    
-    data_list_np = np.array(data_list)
-    dmeasure = {}
-    dmeasure['type'] = "D"
-    dmeasure['time'] = datetime.strftime(btime, '%Y-%m-%d %H:%M:%S.%f')
-    dmeasure['min'] = np.min(data_list_np)
-    dmeasure['max']= np.max(data_list_np)
-    dmeasure['avg'] = np.average(data_list_np)
-    dmeasure['std'] = np.std(data_list_np)
-    dmeasure['rms'] = np.sqrt(np.mean(data_list_np**2))
-    ae[aename]['data']['dmeasure'] = dmeasure
-    create.ci(aename, 'data', 'dmeasure')
-    
-    if cmeasure["usefft"] in {"Y", "y"}:
-        hrz = FFT(cmeasure, data_list_np)
-        if hrz != -1 : #FFT 연산에 성공한 경우에만 hrz 기록
-            fft = {}
-            fft["start"]=start_time
-            fft["end"]=datetime.strftime(btime, '%Y-%m-%d %H:%M:%S.%f')
-            fft["st1hz"]=hrz
-            ae[aename]['data']['fft']=fft
-            create.ci(aename, 'data', 'fft')
+    t1_msg += f' - doneCollectData - {process_time()-t1_start:.1f}s'
+
+    if sensor_type(aename) == "AC" or sensor_type(aename) == "DS": # 동적 데이터의 경우
+        print(f"{aename} len(data)= {len(data_list)} elapsed= {process_time()-point1:.1f}")
+        
+        #print(f'len(data_list)= {len(data_list)}')
+        #print(data_list)
+        data_list_np = np.array(data_list)
+        dmeasure = {}
+        dmeasure['type'] = "D"
+        dmeasure['time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")   # spec에 의하면 10분 측정구간의 시작시간을 지정
+        dmeasure['min'] = np.min(data_list_np)
+        dmeasure['max']= np.max(data_list_np)
+        dmeasure['avg'] = np.average(data_list_np)
+        dmeasure['std'] = np.std(data_list_np)
+        dmeasure['rms'] = np.sqrt(np.mean(data_list_np**2))
+        ae[aename]['data']['dmeasure'] = dmeasure
+        #create.ci(aename, 'data', 'dmeasure')
+        t3=threading.Thread(target=create.ci, args=(aename, 'data', 'dmeasure'))
+        t3.start()
+        
+        if cmeasure["usefft"] in {"Y", "y"}:
+            hrz = FFT(cmeasure, data_list_np)
+            if hrz != -1 : #FFT 연산에 성공한 경우에만 hrz 기록
+                fft = {}
+                fft["start"]=start_time.strftime("%Y-%m-%d %H:%M:%S")
+                fft["end"]=recent_data['time']
+                fft["st1hz"]=hrz
+                ae[aename]['data']['fft']=fft
+                #create.ci(aename, 'data', 'fft')
+                t0=threading.Thread(target=create.ci, args=(aename, 'data', 'fft'))
+                t0.start()
+
+    else: # 정적 데이터의 경우, 하나의 데이터만을 전송. FFT 설정에는 아예 반응하지 않는다
+        dmeasure = {}
+        dmeasure['val'] = j["data"]
+        dmeasure['time'] = j["time"]
+        dmeasure['type'] = "S"
+        ae[aename]['data']['dmeasure'] = dmeasure
+        #create.ci(aename, 'data', 'dmeasure')
+        t1=threading.Thread(target=create.ci, args=(aename, 'data', 'dmeasure'))
+        t1.start()
+
+    t1_msg += f' - doneSendCi - {process_time()-t1_start:.1f}s'
 
     merged_file = { # 최종적으로 rawperiod간의 데이터가 저장될 json의 dict
-        "starttime":start_time,
-        "endtime":datetime.strftime(btime, '%Y-%m-%d %H:%M:%S.%f'),
+        "starttime":start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "endtime":recent_data['time'],
         "count":len(data_list),
         "data":data_list
     }
-    file_name = f'{aename}_{btime.strftime("%Y%m%d%H%M")}'
-    with open (F"{save_path}/{file_name}.bin", "w") as f:
-        json.dump(merged_file, f, indent=4) # 통합 data 저장. 분단위까지 파일명에 기록됩니다
 
-    host = ae[aename]['config']['connect']['uploadip']
-    port = ae[aename]['config']['connect']['uploadport']
-    url = F"http://{host}:{port}/upload"
+    file_name = f'{save_path}/{start_time.strftime("%Y%m%d%H%M")}_{aename}.bin'
 
-    print(f'upload url= {url} {save_path}/{file_name}.bin')
-    r = requests.post(url, data = {"keyValue1":12345}, files = {"attachment":open(F"{save_path}/{file_name}.bin", "rb")})
-    print(f'result= {r.text}')
-    print(f'uploaded a file elapsed= {process_time()-point1:.1f}s')
+    # saved file의 이름은 끝나는 시간임 --> 시작시간으로 변경
+    def savefile(fname, mfile):
+        with open (fname, "w") as f: json.dump(mfile, f, indent=4)
+    #savefile(aename, boardTime, f'{save_path}/{file_name}.bin')
+    t2=threading.Thread(target=savefile, args=(file_name, merged_file))
+    t2.start()
 
+
+    t1_msg += f' - doneSaveFile - {process_time()-t1_start:.1f}s'
+
+    def upload(aename, fname):
+        global ae, save_path
+        host = ae[aename]['config']['connect']['uploadip']
+        port = ae[aename]['config']['connect']['uploadport']
+        url = F"http://{host}:{port}/upload"
+        print(f'{aename} upload url= {url} {fname}')
+        try:
+            r = requests.post(url, data = {"keyValue1":12345}, files = {"attachment":open(fname, "rb")})
+            print(f'{aename} result= {r.text}')
+        except:
+            print(f'fail-to-upload {aename} file={fname}')
+
+    #upload(aename, f'{save_path}/{file_name}.bin')
+    t2=threading.Thread(target=upload, args=(aename, file_name))
+    t2.start()
+    #print(f'{aename} uploaded a file elapsed= {process_time()-point1:.1f}s')
+
+    # reserve some data for trigger follow-up
     mymemory["file"]={}
+    for i in range(300, 1000): # 전 5분간의 데이타를 save해둔다. 
+        key = (boardTime - timedelta(seconds=i)).strftime("%Y-%m-%d-%H%M%S")
+        if key in mymemory["file"]: del mymemory["file"][key]
+
+    t1_msg += f' - doneUploadFile - {process_time()-t1_start:.1f}s'
+
+    return 'ok', t1_start, t1_msg

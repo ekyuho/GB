@@ -37,7 +37,6 @@ spi = spidev.SpiDev()
 spi.open(spi_bus, spi_device)
 spi.max_speed_hz = 100000 #100MHz
 
-console_msg=""
 #하드웨어 보드의 설정상태 저장
 board_setting = {} 
 
@@ -68,7 +67,7 @@ def time_conversion(stamp):
     #return str(BaseTime + timedelta(milliseconds = t_delta))
 
     c_delta = stamp - BaseTimeStamp
-    return str(BaseTime + timedelta(milliseconds = c_delta))
+    return (BaseTime + timedelta(milliseconds = c_delta)).strftime("%Y-%m-%d %H:%M:%S")
 
 def status_conversion(solar, battery, vdd):
     solar   = 0.003013 * solar + 1.2824
@@ -81,14 +80,19 @@ def sync_time():
     global BaseTime
     global BaseTimeStamp
     
-    BaseTime = datetime.now()
-    time.sleep(ds)  
-    spi.xfer2([0x27])
-    time.sleep(ds)  
-    status_data_i_got = spi.xfer2([0x0]*14)
+    for i in range(5):
+        BaseTime = datetime.now()
+        time.sleep(ds)  
+        spi.xfer2([0x27])
+        time.sleep(ds)  
+        status_data_i_got = spi.xfer2([0x0]*14)
 
-    BaseTimeStamp = status_data_i_got[3] << 24 | status_data_i_got[2] << 16 | status_data_i_got[1] << 8 | status_data_i_got[0]  - TimeCorrection
+        BaseTimeStamp = status_data_i_got[3] << 24 | status_data_i_got[2] << 16 | status_data_i_got[1] << 8 | status_data_i_got[0]  - TimeCorrection
+        if BaseTimeStamp > 0: break
+        print(f'INVALID BaseTimeStamp= {BaseTimeStamp}  try again')
+
     print(f'syc_time BaseTime= {BaseTime}  BaseTimeStamp= {BaseTimeStamp}')
+    return str(BaseTime)
 
 # int Twos_Complement(string data, int length)
 # bit data를 int data로 바꾸어줍니다.
@@ -244,7 +248,6 @@ Offset={'AC':0,'DI':0,'TI':0,'TP':0}
 # 센서로부터 data bit를 받아, 그것을 적절한 int값으로 변환합니다.
 # return value는 모든 센서 데이터를 포함하고 있는 dictionary 데이터입니다.
 def data_receiving():
-    global console_msg
     global Offset
     #print("s:0x24")        # request header
     rcv1 = spi.xfer2([0x24])
@@ -266,11 +269,8 @@ def data_receiving():
         json_data["Timestamp"] = timestamp
         #print("trigger status : ", status_trigger_return(status)) #trigger 작동여부 출력 테스트 코드
         json_data["trigger"] = status_trigger_return(status)
-        console_msg = ""
     else:
         isReady = False
-        #console_msg += " ** device not ready"
-        console_msg = ""
         fail_data = {"Status":"False"}
         return fail_data
         
@@ -332,15 +332,13 @@ def data_receiving():
         s1 = 'trigger='
         for x in json_data['trigger']:
             if  json_data['trigger'][x]=='1': s1 += f' {x}:1'
-        if not s1 == 'trigger=':
-            console_msg += ' '+s1
         json_data["Status"]="Ok"
         return json_data
 
 def set_config_data(config_data):
     jdata = json.loads(config_data)
 
-    print(f'set_config {jdata}')
+    print(f'set_config {json.dumps(jdata, indent=4)}')
 
     global Offset
     # set offset, already defauled to 0
@@ -422,7 +420,7 @@ def get_status_data():
     status_data["Timestamp"] = time_conversion( timestamp ) # board uptime 
     status_data["resetFlag"] = status_data_i_got[5]  << 8  | status_data_i_got[4]   
     status_data["solar"]     = solar #
-    status_data["battery"]   = battery #battery %
+    status_data["battery"]   = float(f'{battery:.1f}') #battery %
     status_data["vdd"]       = vdd 
     status_data["errcode"]   = status_data_i_got[13] << 8  | status_data_i_got[12]  
     return(status_data)
@@ -436,11 +434,12 @@ def do_command(command, param):
     
     # main
     if command=="RESYNC":
-        sync_time()
-        ok_data = {"Status":"Ok"}
+        ok_data = {"Status":"Ok", "Timestamp": sync_time()}
+        ok_data['Origin'] = command
         sending_data = json.dumps(ok_data, ensure_ascii=False)
+        print(f'sync {ok_data["Timestamp"]}')
 
-    if command=="START":
+    elif command=="START":
         flag = False
     elif command == "STOP":
         flag = False
@@ -450,12 +449,15 @@ def do_command(command, param):
     elif command=="CAPTURE":
         # CAPTURE 명령어를 받으면, 센서 데이터를 포함한 json file을 client에 넘깁니다.
         data = data_receiving()
+        data['Origin']=command
         sending_data = json.dumps(data, ensure_ascii=False) 
 
     elif command=="STATUS":
         d=get_status_data()
         d["Status"]="Ok"
+        d["Origin"]=command
         sending_data = json.dumps(d, ensure_ascii=False)
+        print('query board with state info')
 
     elif command=="CONFIG":
         sending_config_data = [0x09]
@@ -471,8 +473,9 @@ def do_command(command, param):
             sending_config_data.append(tmp >> 8)
         rcv = spi.xfer2(sending_config_data)
         ok_data = {"Status":"Ok"}
+        ok_data['Origin'] = command
         sending_data = json.dumps(ok_data, ensure_ascii=False)
-        #print('CONFIG returns ', sending_data)
+        print('wrote board with config info')
     else:
         print('WRONG COMMAND: ', command)
         fail_data = {"Status":"False","Reason":"Wrong Command"}
@@ -543,14 +546,5 @@ while(1) :
             continue
         session_active = True
 
-        now=datetime.now()
-        if cmd.startswith("CAPTURE"):
-            console_msg=f'{cmd} {now.strftime("%H:%M:%S")} +{(now-time_old).total_seconds():.1f}s'
-            time_old=now
-        else:
-            console_msg=f'{cmd} {now.strftime("%H:%M:%S")}'
+        if not cmd.startswith('CAPTURE'): print(f'got {cmd} at {datetime.now().strftime("%H:%M:%S")}')
         do_command(cmd, param)
-        if console_msg != "":
-            print(console_msg)
-
-
