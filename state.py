@@ -11,7 +11,7 @@ ae = conf.ae
 boardTime = conf.boardTime
 
 def report(aename):
-    global ae, boardTime
+    global ae
     state = ae[aename]['state']
 
     state['cpu']=psutil.cpu_percent()
@@ -34,7 +34,8 @@ def report(aename):
 
     state['uptime']= f'{days}days, {hours:02}:{mins:02}:{sec:02}'
 
-    print('update', state)
+    #print('update', state)
     # board에서 가져온 battery는 이미 ae값에 저장되어 여기서 사용
+    print(f"state= {ae[aename]['state']}")
     create.ci(aename, 'state', '')
 

@@ -338,7 +338,8 @@ def data_receiving():
 def set_config_data(config_data):
     jdata = json.loads(config_data)
 
-    print(f'set_config {json.dumps(jdata, indent=4)}')
+    print(f'CONFIG wrote to board')
+    for x in jdata: print(x, jdata[x])
 
     global Offset
     # set offset, already defauled to 0
@@ -436,8 +437,9 @@ def do_command(command, param):
     if command=="RESYNC":
         ok_data = {"Status":"Ok", "Timestamp": sync_time()}
         ok_data['Origin'] = command
-        sending_data = json.dumps(ok_data, ensure_ascii=False)
+        #sending_data = json.dumps(ok_data, ensure_ascii=False)
         print(f'sync {ok_data["Timestamp"]}')
+        flag = False
 
     elif command=="START":
         flag = False
@@ -457,7 +459,7 @@ def do_command(command, param):
         d["Status"]="Ok"
         d["Origin"]=command
         sending_data = json.dumps(d, ensure_ascii=False)
-        print('query board with state info')
+        #print('query board with state info')
 
     elif command=="CONFIG":
         sending_config_data = [0x09]
@@ -475,11 +477,12 @@ def do_command(command, param):
         ok_data = {"Status":"Ok"}
         ok_data['Origin'] = command
         sending_data = json.dumps(ok_data, ensure_ascii=False)
-        print('wrote board with config info')
+        flag = False
     else:
         print('WRONG COMMAND: ', command)
         fail_data = {"Status":"False","Reason":"Wrong Command"}
         sending_data = json.dumps(fail_data, ensure_ascii=False)
+        flag=Falseflag = False
     
     if flag:
         #sending_data += '\n\n'
